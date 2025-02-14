@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "437359503705",
+    "project_id": "refillpro-65d6b",
+    "storage_bucket": "refillpro-65d6b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:437359503705:android:690a94ddcb115dca9b8448",
+        "android_client_info": {
+          "package_name": "com.example.rider_and_clerk_application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApFq-pPOe1TCVcYcSglZus163n_xBA4b0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,325 @@
+import 'package:flutter/material.dart';
+import '../../../services/order_list_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class OrderList extends StatefulWidget {
+  const OrderList({super.key});
+
+  @override
+  State<OrderList> createState() => _OrderListState();
+}
+
+class _OrderListState extends State<OrderList> {
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  final OrderListService _orderListService = OrderListService();
+  
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<dynamic> _orders = []; // ✅ Declare orders list properly
+
+  @override
+  void initState() {
+    super.initState();
+    _getOrders();
+  }
+
+  Future<void> _getOrders() async {
+    String? token = await _secureStorage.read(key: 'access_token');
+
+    if (token == null) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "No authentication token found.";
+      });
+      return;
+    }
+
+    try {
+      List<dynamic> items = await _orderListService.fetchOrders(token);
+      setState(() {
+        _orders = items; 
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Failed to load orders.";
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(child: Text(_errorMessage!)) // ✅ Handle error case
+              : _orders.isEmpty
+                  ? const Center(child: Text("No orders available"))
+                  : ListView.builder(
+                      itemCount: _orders.length,
+                      itemBuilder: (context, index) {
+                        final order = _orders[index];
+                        return ListTile(
+                          title: Text("Order ID: ${order['id']}"),
+                          subtitle: Text("Status: ${order['status']}"),
+                        );
+                      },
+                    ),
+    );
+  }
+}
+
+
+
+
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:rider_and_clerk_application/screens/home/components/order_details.dart';
+import 'sample_order.dart';
+
+class OrderList extends StatefulWidget {
+  const OrderList({super.key});
+
+  @override
+  State<OrderList> createState() => _OrderListState();
+}
+
+class _OrderListState extends State<OrderList> {
+  List<int> countdownTimers =
+      List.generate(orders.length, (index) => 600); // 10 minutes in seconds
+  List<Timer?> timers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    startCountdowns();
+  }
+
+  void startCountdowns() {
+    for (int i = 0; i < orders.length; i++) {
+      timers.add(Timer.periodic(Duration(seconds: 1), (timer) {
+        setState(() {
+          if (countdownTimers[i] > 0) {
+            countdownTimers[i]--;
+          } else {
+            timer.cancel();
+          }
+        });
+      }));
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var timer in timers) {
+      timer?.cancel();
+    }
+    super.dispose();
+  }
+
+  void toggleExpand(int index) {
+    setState(() {
+      orders[index]['isExpanded'] = !(orders[index]['isExpanded'] ?? false);
+    });
+  }
+
+  String formatTime(int seconds) {
+    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
+    final secs = (seconds % 60).toString().padLeft(2, '0');
+    return "$minutes:$secs";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: ListView.builder(
+          itemCount: orders.length,
+          itemBuilder: (context, index) {
+            final order = orders[index];
+            return Container(
+              margin:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 2.0),
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            "Order # ",
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            order['orderNo'],
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.circle,
+                            color: Colors.green,
+                            size: 12,
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            formatTime(countdownTimers[index]),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => toggleExpand(index),
+                            child: Icon(
+                              order['isExpanded']
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Divider(thickness: 1, color: Colors.grey[300]),
+                  if (order['isExpanded']) ...[
+                    // Customer and Address Details
+                    const SizedBox(height: 8),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(
+                            text: "Customer: ",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          TextSpan(
+                            text: order['customerName'],
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(
+                            text: "Address: ",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          TextSpan(
+                            text: order['address'],
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(thickness: 1, color: Colors.grey[300]),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Order Details:",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Text('Quantity')
+                      ],
+                    ),
+                    // Order Items
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: order['orderItems'].length,
+                      itemBuilder: (context, itemIndex) {
+                        final item = order['orderItems'][itemIndex];
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              item['name'],
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              "${item['quantity']}",
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    Divider(thickness: 1, color: Colors.grey[300]),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => OrderDetails(),
+                              ));
+                        },
+                        child: Text('View Details'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
