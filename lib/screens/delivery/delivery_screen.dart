@@ -13,7 +13,7 @@ class DeliveryScreen extends StatelessWidget {
         backgroundColor: kPrimaryColor,
         automaticallyImplyLeading: false,
       ),
-      body: DeliveryList(), // Directly use PendingList
+
     );
   }
 }
