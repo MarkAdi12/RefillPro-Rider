@@ -17,11 +17,14 @@ class OrderListService {
         final List<dynamic> data = json.decode(response.body);
         return data;
       } else {
-        throw Exception('Failed to load orders. Status Code: ${response.statusCode}');
+        throw Exception(
+            'Failed to load orders. Status Code: ${response.statusCode}');
       }
     } catch (e) {
       print("Error fetching orders: $e");
       return [];
     }
   }
+
+
 }

@@ -3,6 +3,10 @@ import 'dart:math';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:rider_and_clerk_application/constants.dart';
+import 'package:rider_and_clerk_application/screens/init_screen.dart';
+import '../delivery_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DeliveryList extends StatefulWidget {
   final List<Map<String, dynamic>> selectedOrders;
@@ -17,23 +21,32 @@ class _DeliveryListState extends State<DeliveryList> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
-
   final String googleMapsApiKey = 'AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk';
-
   final double storeLat = 14.7168122;
   final double storeLon = 120.9553401;
-
   List<Map<String, dynamic>> _sortedOrders = [];
 
   @override
   void initState() {
     super.initState();
     _applyNNA();
+    _saveDeliveries();
+    
+  }
+
+  Future<void> _saveDeliveries() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('delivery_list', jsonEncode(_sortedOrders));
+
+    print('Deliveries saved successfully!');
+    print('Number of orders saved: ${_sortedOrders.length}');
+    print('Saved data: ${jsonEncode(_sortedOrders)}');
   }
 
   // Apply Nearest Neighbor Algorithm (NNA) to sort orders
   void _applyNNA() {
-    List<Map<String, dynamic>> unvisitedOrders = List.from(widget.selectedOrders);
+    List<Map<String, dynamic>> unvisitedOrders =
+        List.from(widget.selectedOrders);
     _sortedOrders.clear();
 
     // Start at the store
@@ -41,7 +54,8 @@ class _DeliveryListState extends State<DeliveryList> {
 
     while (unvisitedOrders.isNotEmpty) {
       // Find the nearest customer from the current location
-      Map<String, dynamic> nearestOrder = _findNearestOrder(currentLocation, unvisitedOrders);
+      Map<String, dynamic> nearestOrder =
+          _findNearestOrder(currentLocation, unvisitedOrders);
       _sortedOrders.add(nearestOrder);
 
       // Update the current location to the nearest customer
@@ -57,7 +71,8 @@ class _DeliveryListState extends State<DeliveryList> {
         nextLocation.latitude,
         nextLocation.longitude,
       );
-      print('Distance from Store (${currentLocation.latitude}, ${currentLocation.longitude}) '
+      print(
+          'Distance from Store (${currentLocation.latitude}, ${currentLocation.longitude}) '
           'to (${nextLocation.latitude}, ${nextLocation.longitude}): ${distance.toStringAsFixed(2)} km');
 
       // Update the current location
@@ -101,34 +116,38 @@ class _DeliveryListState extends State<DeliveryList> {
 
   // Find the nearest order from the current location
 // Find the nearest order from the current location
-Map<String, dynamic> _findNearestOrder(LatLng currentLocation, List<Map<String, dynamic>> orders) {
-  Map<String, dynamic> nearestOrder = orders[0];
-  double nearestDistance = double.infinity;
+  Map<String, dynamic> _findNearestOrder(
+      LatLng currentLocation, List<Map<String, dynamic>> orders) {
+    Map<String, dynamic> nearestOrder = orders[0];
+    double nearestDistance = double.infinity;
 
-  print('\nCurrent Location: (${currentLocation.latitude}, ${currentLocation.longitude})');
+    print(
+        '\nCurrent Location: (${currentLocation.latitude}, ${currentLocation.longitude})');
 
-  for (var order in orders) {
-    double customerLat = double.parse(order['customer']['lat'] ?? '0');
-    double customerLon = double.parse(order['customer']['long'] ?? '0');
-    double distance = calculateDistance(
-      currentLocation.latitude,
-      currentLocation.longitude,
-      customerLat,
-      customerLon,
-    );
+    for (var order in orders) {
+      double customerLat = double.parse(order['customer']['lat'] ?? '0');
+      double customerLon = double.parse(order['customer']['long'] ?? '0');
+      double distance = calculateDistance(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        customerLat,
+        customerLon,
+      );
 
-    print('Order ID: ${order['id']}, Distance: ${distance.toStringAsFixed(2)} km');
+      print(
+          'Order ID: ${order['id']}, Distance: ${distance.toStringAsFixed(2)} km');
 
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestOrder = order;
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestOrder = order;
+      }
     }
+
+    print(
+        'Nearest Order Selected: ID ${nearestOrder['id']} with Distance: ${nearestDistance.toStringAsFixed(2)} km\n');
+
+    return nearestOrder;
   }
-
-  print('Nearest Order Selected: ID ${nearestOrder['id']} with Distance: ${nearestDistance.toStringAsFixed(2)} km\n');
-
-  return nearestOrder;
-}
 
   // Rest of the code remains the same...
   Future<void> _getDirections(List<LatLng> routePoints) async {
@@ -157,8 +176,8 @@ Map<String, dynamic> _findNearestOrder(LatLng currentLocation, List<Map<String, 
       _polylines.add(Polyline(
         polylineId: PolylineId('route'),
         points: polylineCoordinates,
-        color: Colors.red,
-        width: 5,
+        color: kPrimaryColor,
+        width: 4,
       ));
     });
   }
@@ -205,71 +224,108 @@ Map<String, dynamic> _findNearestOrder(LatLng currentLocation, List<Map<String, 
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Sorted Delivery Orders (NNA)"),
+        title: Text('Delivery List'),
       ),
-      body: Column(
-        children: [
-          // Map view
-          Expanded(
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: LatLng(storeLat, storeLon),
-                zoom: 18,
-              ),
-              onMapCreated: (controller) {
-                _mapController = controller;
-              },
-              markers: _markers,
-              polylines: _polylines,
+      body: widget.selectedOrders.isEmpty
+          ? Center(
+              child:
+                  Text("No current delivery", style: TextStyle(fontSize: 16)),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    child: GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: LatLng(storeLat, storeLon),
+                        zoom: 18,
+                      ),
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                      },
+                      markers: _markers,
+                      polylines: _polylines,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _sortedOrders.length,
+                    itemBuilder: (context, index) {
+                      final order = _sortedOrders[index];
+                      String orderId = order['id'].toString();
+                      String address = order['customer']['address'] ??
+                          'No Address Available';
+                      return ListTile(
+                        title: Text("Order ID: $orderId",
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                            'Address: $address\nDistance: ${calculateDistance(
+                          storeLat,
+                          storeLon,
+                          double.parse(order['customer']['lat'] ?? '0'),
+                          double.parse(order['customer']['long'] ?? '0'),
+                        ).toStringAsFixed(2)} km'),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await _saveDeliveries();
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => InitScreen( initialIndex: 1,
+                              
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        elevation: 6,
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text('Start Delivery',
+                          style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                )
+              ],
             ),
-          ),
-          // List view of sorted orders
-          Expanded(
-            child: ListView.builder(
-              itemCount: _sortedOrders.length,
-              itemBuilder: (context, index) {
-                final order = _sortedOrders[index];
-                String orderId = order['id'].toString();
-                String address =
-                    order['customer']['address'] ?? 'No Address Available';
-
-                return ListTile(
-                  title: Text("Order ID: $orderId",
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  subtitle:
-                      Text('Address: $address\nDistance: ${calculateDistance(
-                    storeLat,
-                    storeLon,
-                    double.parse(order['customer']['lat'] ?? '0'),
-                    double.parse(order['customer']['long'] ?? '0'),
-                  ).toStringAsFixed(2)} km'),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  // Function to calculate distance using Haversine formula
   double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    const earthRadius = 6371; 
-
-    double lat1Rad = _degToRad(lat1);
-    double lon1Rad = _degToRad(lon1);
-    double lat2Rad = _degToRad(lat2);
-    double lon2Rad = _degToRad(lon2);
-
-    double dLat = lat2Rad - lat1Rad;
-    double dLon = lon2Rad - lon1Rad;
-
+    const earthRadius = 6371;
+    double dLat = _degToRad(lat2 - lat1);
+    double dLon = _degToRad(lon2 - lon1);
     double a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(lat1Rad) * cos(lat2Rad) * sin(dLon / 2) * sin(dLon / 2);
+        cos(_degToRad(lat1)) *
+            cos(_degToRad(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
     double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-
-    return earthRadius * c; 
+    return earthRadius * c;
   }
 
   double _degToRad(double deg) {

@@ -1,30 +1,198 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http; // For HTTP requests
+import 'dart:convert'; // For JSON parsing
+import 'dart:async'; // For Timer
+import '../../../services/location_service.dart';
 
-class GoogleMapScreen extends StatelessWidget {
+class GoogleMapScreen extends StatefulWidget {
   final Map<String, dynamic> order;
 
   const GoogleMapScreen({super.key, required this.order});
 
   @override
-  Widget build(BuildContext context) {
-    // Customer location
-    double customerLatitude =
-        double.tryParse(order['customer']['lat'] ?? '0') ?? 0.0;
-    double customerLongitude =
-        double.tryParse(order['customer']['long'] ?? '0') ?? 0.0;
+  _GoogleMapScreenState createState() => _GoogleMapScreenState();
+}
 
-    // Rider location
-    double riderLatitude =
-        double.tryParse(order['assigned_to']['lat'] ?? '0') ?? 0.0;
-    double riderLongitude =
-        double.tryParse(order['assigned_to']['long'] ?? '0') ?? 0.0;
+class _GoogleMapScreenState extends State<GoogleMapScreen> {
+  late GoogleMapController _mapController;
+  late double customerLatitude;
+  late double customerLongitude;
+  String _distance = '';
+  String _duration = '';
+  LatLng? currentLocation; // Nullable LatLng to store the current location
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
+  Timer? _locationTimer; // Timer for updating location
 
-    double totalPrice = 0.0;
-    order['order_details'].forEach((orderDetail) {
-      totalPrice += double.tryParse(orderDetail['total_price'] ?? '0.0') ?? 0.0;
+  @override
+  void initState() {
+    super.initState();
+    // Initialize customer location from order data
+    customerLatitude =
+        double.tryParse(widget.order['customer']['lat'] ?? '0') ?? 0.0;
+    customerLongitude =
+        double.tryParse(widget.order['customer']['long'] ?? '0') ?? 0.0;
+
+    // Get the current location using the LocationService
+    _getCurrentLocation();
+
+    // Start a timer to update the current location periodically
+    _locationTimer = Timer.periodic(Duration(seconds: 5), (timer) {
+      _getCurrentLocation();
     });
+  }
 
+  @override
+  void dispose() {
+    _locationTimer?.cancel(); // Cancel the timer when disposing
+    super.dispose();
+  }
+
+  // Get current location of the rider
+  Future<void> _getCurrentLocation() async {
+    LatLng? location = await LocationService.getCurrentLocation(context);
+    if (location != null) {
+      setState(() {
+        currentLocation = location;
+        _addMarkers();
+        if (currentLocation != null &&
+            customerLatitude != 0.0 &&
+            customerLongitude != 0.0) {
+          _getRoute(
+              currentLocation!, LatLng(customerLatitude, customerLongitude));
+        }
+      });
+    }
+  }
+
+  // Add markers for customer and rider locations
+  void _addMarkers() {
+    _markers.clear(); // Clear existing markers
+    _markers.add(
+      Marker(
+        markerId: MarkerId("customer_location"),
+        position: LatLng(customerLatitude, customerLongitude),
+        infoWindow: InfoWindow(
+          title: "Customer's Location",
+          snippet: widget.order['customer']['address'],
+        ),
+      ),
+    );
+
+    if (currentLocation != null) {
+      _markers.add(
+        Marker(
+          markerId: MarkerId("current_location"),
+          position: currentLocation!,
+          infoWindow: InfoWindow(
+            title: "Current Location",
+            snippet: "This is your current location",
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        ),
+      );
+    }
+  }
+
+  // Fetch the route from Directions API and add polyline
+  Future<void> _getRoute(LatLng start, LatLng end) async {
+    final String apiKey =
+        'AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk'; // Replace with your API key
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/directions/json?origin=${start.latitude},${start.longitude}&destination=${end.latitude},${end.longitude}&key=$apiKey',
+    );
+
+    final response = await http.get(url);
+    print('Response status: ${response.statusCode}');
+    print('Response body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['routes'].isNotEmpty) {
+        final route = data['routes'][0];
+        final polylinePoints = route['overview_polyline']['points'];
+        print('Polyline points: $polylinePoints');
+        _clearPolyline(); // Clear the old polyline before adding new one
+        _addPolyline(polylinePoints);
+
+        // Extract distance and duration
+        final distance = route['legs'][0]['distance']['text'];
+        final duration = route['legs'][0]['duration ']['text'];
+
+        // Update the UI with the distance and duration
+        setState(() {
+          _distance = distance; // Store the distance
+          _duration = duration; // Store the duration
+        });
+      } else {
+        print('No routes found in the response.');
+      }
+    } else {
+      throw Exception('Failed to load directions');
+    }
+  }
+
+  // Clear the existing polyline
+  void _clearPolyline() {
+    setState(() {
+      _polylines.clear();
+    });
+  }
+
+  // Decode polyline and add to the map
+  void _addPolyline(String polylinePoints) {
+    final polylineCoordinates = _decodePolyline(polylinePoints);
+    print('Decoded polyline coordinates: $polylineCoordinates');
+
+    setState(() {
+      _polylines.add(
+        Polyline(
+          polylineId: PolylineId('route'),
+          color: Colors.blue,
+          width: 6,
+          points: polylineCoordinates,
+        ),
+      );
+      print('Polylines: $_polylines');
+    });
+  }
+
+  List<LatLng> _decodePolyline(String polyline) {
+    List<LatLng> polylineCoordinates = [];
+    int index = 0;
+    int len = polyline.length;
+    int lat = 0, lng = 0;
+    while (index < len) {
+      int shift = 0;
+      int result = 0;
+      int byte;
+      do {
+        byte = polyline.codeUnitAt(index++) - 63;
+        result |= (byte & 0x1F) << shift;
+        shift += 5;
+      } while (byte >= 0x20 && index < len);
+      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+      shift = 0;
+      result = 0;
+      do {
+        byte = polyline.codeUnitAt(index++) - 63;
+        result |= (byte & 0x1F) << shift;
+        shift += 5;
+      } while (byte >= 0x20 && index < len);
+
+      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      polylineCoordinates.add(LatLng(lat / 1E5, lng / 1E5));
+    }
+
+    return polylineCoordinates;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Delivery")),
       body: SingleChildScrollView(
@@ -35,30 +203,29 @@ class GoogleMapScreen extends StatelessWidget {
               height: 300,
               child: GoogleMap(
                 initialCameraPosition: CameraPosition(
-                  target: LatLng(riderLatitude, riderLongitude),
-                  zoom: 18,
+                  target: currentLocation != null &&
+                          customerLatitude != 0.0 &&
+                          customerLongitude != 0.0
+                      ? LatLng(
+                          (currentLocation!.latitude + customerLatitude) /
+                              2, // Midpoint latitude
+                          (currentLocation!.longitude + customerLongitude) /
+                              2, // Midpoint longitude
+                        )
+                      : LatLng(customerLatitude,
+                          customerLongitude), // Default if current location is unavailable
+                  zoom: 16,
                 ),
-                markers: {
-                  // Customer marker
-                  Marker(
-                    markerId: MarkerId("customer_location"),
-                    position: LatLng(customerLatitude, customerLongitude),
-                    infoWindow: InfoWindow(
-                      title: "Customer's Location",
-                      snippet: order['customer']['address'],
-                    ),
-                  ),
-                  // Rider marker
-                  Marker(
-                    markerId: MarkerId("rider_location"),
-                    position: LatLng(riderLatitude, riderLongitude),
-                    infoWindow: InfoWindow(
-                      title: "Rider's Location",
-                      snippet: order['assigned_to']['address'],
-                    ),
-                    icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueViolet), 
-                  ),
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                },
+                markers: _markers,
+                polylines: _polylines,
+                onCameraMove: (CameraPosition position) {
+                  // Update the current camera position when the user drags the map
+                  setState(() {
+                    currentLocation = position.target; // Update the current location with the new camera position
+                  });
                 },
               ),
             ),
@@ -72,7 +239,8 @@ class GoogleMapScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Order ID:', style: TextStyle(fontSize: 16)),
-                      Text('${order['id']}', style: TextStyle(fontSize: 16)),
+                      Text('${widget.order['id']}',
+                          style: TextStyle(fontSize: 16)),
                     ],
                   ),
                   Divider(),
@@ -80,7 +248,7 @@ class GoogleMapScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Address:', style: TextStyle(fontSize: 14)),
-                      Text('${order['customer']['address']}',
+                      Text('${widget.order['customer']['address']}',
                           style: TextStyle(fontSize: 16)),
                     ],
                   ),
@@ -88,7 +256,7 @@ class GoogleMapScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Phone Number:', style: TextStyle(fontSize: 14)),
-                      Text('${order['customer']['phone_number']}',
+                      Text('${widget.order['customer']['phone_number']}',
                           style: TextStyle(fontSize: 16)),
                     ],
                   ),
@@ -97,29 +265,35 @@ class GoogleMapScreen extends StatelessWidget {
                     children: [
                       Text('Customer Name:', style: TextStyle(fontSize: 14)),
                       Text(
-                          '${order['customer']['first_name']} ${order['customer']['last_name']}',
+                          '${widget.order['customer']['first_name']} ${widget.order['customer']['last_name']}',
                           style: TextStyle(fontSize: 16)),
                     ],
                   ),
                   Text('Delivery Instruction:', style: TextStyle(fontSize: 14)),
                   Text(
-                      '${order['remarks']?.isNotEmpty ?? false ? order['remarks'] : "None"}',
+                      '${widget.order['remarks']?.isNotEmpty ?? false ? widget.order['remarks'] : "None"}',
                       style: TextStyle(fontSize: 16)),
+                  Text('Distance: $_distance', style: TextStyle(fontSize: 16)),
+                  Text('Duration: $_duration', style: TextStyle(fontSize: 16)),
                   Divider(),
 
                   // Order Summary
                   Text('Order Summary', style: TextStyle(fontSize: 16)),
                   Column(
-                    children: order['order_details'].map<Widget>((orderDetail) {
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                              '${orderDetail['quantity']} x ${orderDetail['product']['name']}'),
-                          Text('${orderDetail['total_price']}'),
-                        ],
-                      );
-                    }).toList(),
+                    children: widget.order['order_details']
+                            ?.map<Widget>((orderDetail) {
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                  '${orderDetail['quantity']} x ${orderDetail['product']['name']}'),
+                              Text('${orderDetail['total_price']}'),
+                            ],
+                          );
+                        }).toList() ??
+                        [
+                          Text("No items in order")
+                        ], // Fallback if no details are available
                   ),
 
                   // Cash to Collect and Total Price
@@ -127,15 +301,15 @@ class GoogleMapScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Cash to Collect:'),
-                      Text('PHP ${totalPrice.toStringAsFixed(2)}'),
+                      Text('PHP '),
                     ],
                   ),
                   SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Total Price:'),
-                      Text('PHP ${totalPrice.toStringAsFixed(2)}'),
+                      Text('Total Price: '),
+                      Text('PHP ${widget.order['total_price']}'),
                     ],
                   ),
                   SizedBox(height: 8),
@@ -147,7 +321,14 @@ class GoogleMapScreen extends StatelessWidget {
                       Flexible(
                         child: ElevatedButton(
                           onPressed: () {
-                            // Add functionality for complete delivery here
+                            // Update the order status to "completed"
+                            setState(() {
+                              widget.order['status'] = 'completed';
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                content: Text("Delivery Completed"),
+                              ));
+                            });
                           },
                           child: Text('Complete Delivery'),
                         ),
@@ -159,8 +340,17 @@ class GoogleMapScreen extends StatelessWidget {
                             backgroundColor:
                                 MaterialStateProperty.all(Colors.red),
                           ),
-                          onPressed: () {},
-                          child: Text('Failed Delivery'),
+                          onPressed: () {
+                            // Update the order status to "failed"
+                            setState(() {
+                              widget.order['status'] = 'failed';
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                content: Text("Delivery Failed"),
+                              ));
+                            });
+                          },
+                          child: Text('Fail Delivery'),
                         ),
                       ),
                     ],

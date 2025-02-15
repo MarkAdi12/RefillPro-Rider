@@ -1,4 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:rider_and_clerk_application/screens/calc.dart';
 
 import '/screens/sign_in/sign_in_screen.dart';
 import 'package:flutter/material.dart';
@@ -38,7 +39,9 @@ class MenuScreen extends StatelessWidget {
             ProfileMenu(
               text: "Profile",
               icon: Icons.person_2_rounded,
-              press: () => {},
+              press: () => {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => NNAcalculator()))
+              },
             ),
             ProfileMenu(
               text: "Change Password",
