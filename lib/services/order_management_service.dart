@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-class OrderListService {
+class OrderService {
   static const String ordersUrl = 'https://refillpro.store/api/v1/orders/';
 
   Future<List<dynamic>> fetchOrders(String accessToken) async {
@@ -26,5 +26,32 @@ class OrderListService {
     }
   }
 
+ Future<bool> updateOrder(String accessToken, int orderId) async {
+  final String updateOrderUrl = 'https://refillpro.store/api/v1/orders/$orderId/';
 
+  try {
+    final response = await http.post(
+      Uri.parse(updateOrderUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({
+        'status': 1,
+        'action': 'update',
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print("Order updated successfully");
+      return true;
+    } else {
+      print("Failed to update order: ${response.body}");
+      return false;
+    }
+  } catch (e) {
+    print("Error updating order: $e");
+    return false;
+  }
+}
 }

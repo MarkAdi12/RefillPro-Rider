@@ -3,7 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:rider_and_clerk_application/components/custom_appbar.dart';
 import 'package:rider_and_clerk_application/constants.dart';
 
-import 'google_maps.dart';
+import '../../delivery/components/delivery_fulfillment.dart';
 
 class OrderDetails extends StatelessWidget {
   final Map<String, dynamic> order;
@@ -186,7 +186,7 @@ class OrderDetails extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => GoogleMapScreen(order: order)),
+                builder: (context) => DeliveryFulfillment(order: order)),
           );
         },
         child:

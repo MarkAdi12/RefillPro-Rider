@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:rider_and_clerk_application/constants.dart';
-import '../../../services/order_list_service.dart';
-import '../../delivery/components/delivery_list.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../services/order_management_service.dart';
+import '../../delivery/components/nna_deliverylist.dart';
 import 'order_details.dart';
 
 class OrderList extends StatefulWidget {
@@ -15,17 +17,28 @@ class OrderList extends StatefulWidget {
 
 class _OrderListState extends State<OrderList> {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
-  final OrderListService _orderListService = OrderListService();
+  final OrderService _orderListService = OrderService();
 
   bool _isLoading = true;
   String? _errorMessage;
   List<dynamic> _orders = [];
-  final List<int> _selectedOrderIds = []; // List to track selected orders
+  final List<int> _selectedOrderIds = [];
 
   @override
   void initState() {
     super.initState();
     _getOrders();
+  }
+
+  Future<bool> _isOrderSaved(int orderId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? savedDeliveriesJson = prefs.getString('delivery_list');
+
+    if (savedDeliveriesJson != null) {
+      List<dynamic> savedDeliveries = jsonDecode(savedDeliveriesJson);
+      return savedDeliveries.any((order) => order['id'] == orderId);
+    }
+    return false;
   }
 
   Future<void> _getOrders() async {
@@ -41,13 +54,20 @@ class _OrderListState extends State<OrderList> {
 
     try {
       List<dynamic> items = await _orderListService.fetchOrders(token);
-
-      // ORDERS THAT ARE PENDING
       List<dynamic> pendingOrders =
           items.where((order) => order['status'] == 0).toList();
 
+      // Filter out orders that are already saved in deliveries
+      List<dynamic> filteredOrders = [];
+      for (var order in pendingOrders) {
+        bool isSaved = await _isOrderSaved(order['id']);
+        if (!isSaved) {
+          filteredOrders.add(order);
+        }
+      }
+
       setState(() {
-        _orders = pendingOrders;
+        _orders = filteredOrders;
         _isLoading = false;
       });
     } catch (e) {
@@ -61,7 +81,6 @@ class _OrderListState extends State<OrderList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
@@ -171,7 +190,7 @@ class _OrderListState extends State<OrderList> {
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
                                             children: [
-                                              Text(
+                                               Text(
                                                 "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
                                                 style: const TextStyle(
                                                     fontSize: 14),

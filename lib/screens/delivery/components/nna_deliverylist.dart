@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:rider_and_clerk_application/constants.dart';
 import 'package:rider_and_clerk_application/screens/init_screen.dart';
-import '../delivery_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DeliveryList extends StatefulWidget {
@@ -21,29 +20,72 @@ class _DeliveryListState extends State<DeliveryList> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
-  final String googleMapsApiKey = 'AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk';
+  final String googleMapsApiKey = 'SECRET';
   final double storeLat = 14.7168122;
   final double storeLon = 120.9553401;
   List<Map<String, dynamic>> _sortedOrders = [];
+
+  double _totalDistanceBeforeSorting = 0.0;
+  double _totalDistanceAfterSorting = 0.0;
+  double _totalSavedDistance = 0.0;
 
   @override
   void initState() {
     super.initState();
     _applyNNA();
     _saveDeliveries();
-    
+
+    _calculateTotalDistanceBeforeSorting();
+    _calculateTotalDistanceAfterSorting();
+  }
+
+  void _calculateTotalDistanceBeforeSorting() {
+    _totalDistanceBeforeSorting = 0.0;
+    LatLng currentLocation = LatLng(storeLat, storeLon);
+    for (var order in widget.selectedOrders) {
+      double customerLat = double.parse(order['customer']['lat'] ?? '0');
+      double customerLon = double.parse(order['customer']['long'] ?? '0');
+      double distance = calculateDistance(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        customerLat,
+        customerLon,
+      );
+      _totalDistanceBeforeSorting += distance;
+      currentLocation = LatLng(customerLat, customerLon);
+    }
+  }
+
+  void _calculateTotalDistanceAfterSorting() {
+    _totalDistanceAfterSorting = 0.0;
+    LatLng currentLocation = LatLng(storeLat, storeLon);
+
+    for (var order in _sortedOrders) {
+      double customerLat = double.parse(order['customer']['lat'] ?? '0');
+      double customerLon = double.parse(order['customer']['long'] ?? '0');
+      double distance = calculateDistance(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        customerLat,
+        customerLon,
+      );
+      _totalDistanceAfterSorting += distance;
+      currentLocation = LatLng(customerLat, customerLon);
+    }
+
+    // Calculate saved distance
+    _totalSavedDistance =
+        _totalDistanceBeforeSorting - _totalDistanceAfterSorting;
   }
 
   Future<void> _saveDeliveries() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('delivery_list', jsonEncode(_sortedOrders));
-
     print('Deliveries saved successfully!');
     print('Number of orders saved: ${_sortedOrders.length}');
     print('Saved data: ${jsonEncode(_sortedOrders)}');
   }
 
-  // Apply Nearest Neighbor Algorithm (NNA) to sort orders
   void _applyNNA() {
     List<Map<String, dynamic>> unvisitedOrders =
         List.from(widget.selectedOrders);
@@ -114,8 +156,6 @@ class _DeliveryListState extends State<DeliveryList> {
     _getDirections(routePoints);
   }
 
-  // Find the nearest order from the current location
-// Find the nearest order from the current location
   Map<String, dynamic> _findNearestOrder(
       LatLng currentLocation, List<Map<String, dynamic>> orders) {
     Map<String, dynamic> nearestOrder = orders[0];
@@ -151,37 +191,47 @@ class _DeliveryListState extends State<DeliveryList> {
 
   // Rest of the code remains the same...
   Future<void> _getDirections(List<LatLng> routePoints) async {
-    List<LatLng> polylineCoordinates = [];
+    if (routePoints.length < 2) return;
 
-    for (int i = 0; i < routePoints.length - 1; i++) {
-      String url =
-          'https://maps.googleapis.com/maps/api/directions/json?origin=${routePoints[i].latitude},${routePoints[i].longitude}&destination=${routePoints[i + 1].latitude},${routePoints[i + 1].longitude}&key=$googleMapsApiKey';
 
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        var data = json.decode(response.body);
-        if (data['status'] == 'OK') {
-          var route = data['routes'][0]['legs'][0]['steps'];
-          for (var step in route) {
-            var polyline = step['polyline']['points'];
-            polylineCoordinates.addAll(_decodePolyline(polyline));
-          }
-        }
-      } else {
-        throw Exception('Failed to load directions');
+     print('API request has been called! Requesting route from '
+      '${routePoints.first.latitude},${routePoints.first.longitude} '
+      'to ${routePoints.last.latitude},${routePoints.last.longitude}');
+
+    List<String> waypoints = routePoints.sublist(1, routePoints.length - 1)
+        .map((point) => '${point.latitude},${point.longitude}')
+        .toList();
+
+    
+    String url = 'https://maps.googleapis.com/maps/api/directions/json?'
+        'origin=${routePoints.first.latitude},${routePoints.first.longitude}'
+        '&destination=${routePoints.last.latitude},${routePoints.last.longitude}'
+        '&waypoints=${waypoints.join('|')}'
+        '&key=$googleMapsApiKey';
+    
+    print("API request has been called!");
+
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      var data = json.decode(response.body);
+      if (data['status'] == 'OK') {
+        List<LatLng> polylineCoordinates = [];
+        var points = data['routes'][0]['overview_polyline']['points'];
+        polylineCoordinates.addAll(_decodePolyline(points));
+
+        setState(() {
+          _polylines.add(Polyline(
+            polylineId: PolylineId('route'),
+            points: polylineCoordinates,
+            color: kPrimaryColor,
+            width: 4,
+          ));
+        });
       }
+    } else {
+      throw Exception('Failed to load directions');
     }
-
-    setState(() {
-      _polylines.add(Polyline(
-        polylineId: PolylineId('route'),
-        points: polylineCoordinates,
-        color: kPrimaryColor,
-        width: 4,
-      ));
-    });
   }
-
   // Decode polyline encoded string
   List<LatLng> _decodePolyline(String encoded) {
     List<LatLng> polyline = [];
@@ -231,87 +281,93 @@ class _DeliveryListState extends State<DeliveryList> {
               child:
                   Text("No current delivery", style: TextStyle(fontSize: 16)),
             )
-          : Column(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    child: GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(storeLat, storeLon),
-                        zoom: 18,
-                      ),
-                      onMapCreated: (controller) {
-                        _mapController = controller;
-                      },
-                      markers: _markers,
-                      polylines: _polylines,
+          : Column(children: [
+              // Add this text widget to display distances
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Text(
+                  'Before sorting: ${_totalDistanceBeforeSorting.toStringAsFixed(2)} km\n'
+                  'Optimized list: ${_totalDistanceAfterSorting.toStringAsFixed(2)} km\n'
+                  'Total saved distance: ${_totalSavedDistance.toStringAsFixed(2)} km',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(
+                child: SizedBox(
+                  child: GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(storeLat, storeLon),
+                      zoom: 18,
                     ),
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                    },
+                    markers: _markers,
+                    polylines: _polylines,
                   ),
                 ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _sortedOrders.length,
-                    itemBuilder: (context, index) {
-                      final order = _sortedOrders[index];
-                      String orderId = order['id'].toString();
-                      String address = order['customer']['address'] ??
-                          'No Address Available';
-                      return ListTile(
-                        title: Text("Order ID: $orderId",
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                            'Address: $address\nDistance: ${calculateDistance(
-                          storeLat,
-                          storeLon,
-                          double.parse(order['customer']['lat'] ?? '0'),
-                          double.parse(order['customer']['long'] ?? '0'),
-                        ).toStringAsFixed(2)} km'),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _sortedOrders.length,
+                  itemBuilder: (context, index) {
+                    final order = _sortedOrders[index];
+                    String orderId = order['id'].toString();
+                    String address =
+                        order['customer']['address'] ?? 'No Address Available';
+                    return ListTile(
+                      title: Text("Order ID: $orderId",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                          'Address: $address\nDistance: ${calculateDistance(
+                        storeLat,
+                        storeLon,
+                        double.parse(order['customer']['lat'] ?? '0'),
+                        double.parse(order['customer']['long'] ?? '0'),
+                      ).toStringAsFixed(2)} km'),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        spreadRadius: 2,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await _saveDeliveries();
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => InitScreen(initialIndex: 1),
+                        ),
                       );
                     },
+                    style: ElevatedButton.styleFrom(
+                      elevation: 6,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child:
+                        Text('Start Delivery', style: TextStyle(fontSize: 16)),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          spreadRadius: 2,
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        await _saveDeliveries();
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => InitScreen( initialIndex: 1,
-                              
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        elevation: 6,
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text('Start Delivery',
-                          style: TextStyle(fontSize: 16)),
-                    ),
-                  ),
-                )
-              ],
-            ),
+              )
+            ]),
     );
   }
 
