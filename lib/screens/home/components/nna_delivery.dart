@@ -28,13 +28,13 @@ class _DeliveryListState extends State<DeliveryList> {
   double _totalDistanceBeforeSorting = 0.0;
   double _totalDistanceAfterSorting = 0.0;
   double _totalSavedDistance = 0.0;
+  double _improvementPercentage = 0.0;
 
   @override
   void initState() {
     super.initState();
     _applyNNA();
     _saveDeliveries();
-
     _calculateTotalDistanceBeforeSorting();
     _calculateTotalDistanceAfterSorting();
   }
@@ -59,7 +59,6 @@ class _DeliveryListState extends State<DeliveryList> {
   void _calculateTotalDistanceAfterSorting() {
     _totalDistanceAfterSorting = 0.0;
     LatLng currentLocation = LatLng(storeLat, storeLon);
-
     for (var order in _sortedOrders) {
       double customerLat = double.parse(order['customer']['lat'] ?? '0');
       double customerLon = double.parse(order['customer']['long'] ?? '0');
@@ -72,10 +71,14 @@ class _DeliveryListState extends State<DeliveryList> {
       _totalDistanceAfterSorting += distance;
       currentLocation = LatLng(customerLat, customerLon);
     }
-
-    // Calculate saved distance
     _totalSavedDistance =
         _totalDistanceBeforeSorting - _totalDistanceAfterSorting;
+    if (_totalDistanceBeforeSorting > 0) {
+      _improvementPercentage =
+          (_totalSavedDistance / _totalDistanceBeforeSorting) * 100;
+    } else {
+      _improvementPercentage = 0.0;
+    }
   }
 
   Future<void> _saveDeliveries() async {
@@ -90,22 +93,18 @@ class _DeliveryListState extends State<DeliveryList> {
     List<Map<String, dynamic>> unvisitedOrders =
         List.from(widget.selectedOrders);
     _sortedOrders.clear();
-
     // Start at the store
     LatLng currentLocation = LatLng(storeLat, storeLon);
-
     while (unvisitedOrders.isNotEmpty) {
       // Find the nearest customer from the current location
       Map<String, dynamic> nearestOrder =
           _findNearestOrder(currentLocation, unvisitedOrders);
       _sortedOrders.add(nearestOrder);
-
       // Update the current location to the nearest customer
       LatLng nextLocation = LatLng(
         double.parse(nearestOrder['customer']['lat'] ?? '0'),
         double.parse(nearestOrder['customer']['long'] ?? '0'),
       );
-
       // Print the distance between the current location and the next customer
       double distance = calculateDistance(
         currentLocation.latitude,
@@ -116,10 +115,8 @@ class _DeliveryListState extends State<DeliveryList> {
       print(
           'Distance from Store (${currentLocation.latitude}, ${currentLocation.longitude}) '
           'to (${nextLocation.latitude}, ${nextLocation.longitude}): ${distance.toStringAsFixed(2)} km');
-
       // Update the current location
       currentLocation = nextLocation;
-
       // Remove the nearest customer from the unvisited list
       unvisitedOrders.remove(nearestOrder);
     }
@@ -149,10 +146,8 @@ class _DeliveryListState extends State<DeliveryList> {
           snippet: 'Address: $address',
         ),
       ));
-
       routePoints.add(LatLng(customerLat, customerLon));
     }
-
     _getDirections(routePoints);
   }
 
@@ -160,10 +155,8 @@ class _DeliveryListState extends State<DeliveryList> {
       LatLng currentLocation, List<Map<String, dynamic>> orders) {
     Map<String, dynamic> nearestOrder = orders[0];
     double nearestDistance = double.infinity;
-
     print(
         '\nCurrent Location: (${currentLocation.latitude}, ${currentLocation.longitude})');
-
     for (var order in orders) {
       double customerLat = double.parse(order['customer']['lat'] ?? '0');
       double customerLon = double.parse(order['customer']['long'] ?? '0');
@@ -173,44 +166,36 @@ class _DeliveryListState extends State<DeliveryList> {
         customerLat,
         customerLon,
       );
-
       print(
           'Order ID: ${order['id']}, Distance: ${distance.toStringAsFixed(2)} km');
-
       if (distance < nearestDistance) {
         nearestDistance = distance;
         nearestOrder = order;
       }
     }
-
     print(
         'Nearest Order Selected: ID ${nearestOrder['id']} with Distance: ${nearestDistance.toStringAsFixed(2)} km\n');
 
     return nearestOrder;
   }
 
-  // Rest of the code remains the same...
   Future<void> _getDirections(List<LatLng> routePoints) async {
     if (routePoints.length < 2) return;
+    print('API request has been called! Requesting route from '
+        '${routePoints.first.latitude},${routePoints.first.longitude} '
+        'to ${routePoints.last.latitude},${routePoints.last.longitude}');
 
-
-     print('API request has been called! Requesting route from '
-      '${routePoints.first.latitude},${routePoints.first.longitude} '
-      'to ${routePoints.last.latitude},${routePoints.last.longitude}');
-
-    List<String> waypoints = routePoints.sublist(1, routePoints.length - 1)
+    List<String> waypoints = routePoints
+        .sublist(1, routePoints.length - 1)
         .map((point) => '${point.latitude},${point.longitude}')
         .toList();
 
-    
     String url = 'https://maps.googleapis.com/maps/api/directions/json?'
         'origin=${routePoints.first.latitude},${routePoints.first.longitude}'
         '&destination=${routePoints.last.latitude},${routePoints.last.longitude}'
         '&waypoints=${waypoints.join('|')}'
         '&key=$googleMapsApiKey';
-    
     print("API request has been called!");
-
     final response = await http.get(Uri.parse(url));
     if (response.statusCode == 200) {
       var data = json.decode(response.body);
@@ -218,7 +203,6 @@ class _DeliveryListState extends State<DeliveryList> {
         List<LatLng> polylineCoordinates = [];
         var points = data['routes'][0]['overview_polyline']['points'];
         polylineCoordinates.addAll(_decodePolyline(points));
-
         setState(() {
           _polylines.add(Polyline(
             polylineId: PolylineId('route'),
@@ -232,6 +216,7 @@ class _DeliveryListState extends State<DeliveryList> {
       throw Exception('Failed to load directions');
     }
   }
+
   // Decode polyline encoded string
   List<LatLng> _decodePolyline(String encoded) {
     List<LatLng> polyline = [];
@@ -239,7 +224,6 @@ class _DeliveryListState extends State<DeliveryList> {
     int len = encoded.length;
     int lat = 0;
     int lng = 0;
-
     while (index < len) {
       int b;
       int shift = 0;
@@ -252,7 +236,6 @@ class _DeliveryListState extends State<DeliveryList> {
       } while (b >= 0x20);
       int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
       lat += dlat;
-
       shift = 0;
       result = 0;
       do {
@@ -274,7 +257,7 @@ class _DeliveryListState extends State<DeliveryList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Delivery List'),
+        title: Text('Selected Orders'),
       ),
       body: widget.selectedOrders.isEmpty
           ? Center(
@@ -282,14 +265,14 @@ class _DeliveryListState extends State<DeliveryList> {
                   Text("No current delivery", style: TextStyle(fontSize: 16)),
             )
           : Column(children: [
-              // Add this text widget to display distances
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Text(
                   'Before sorting: ${_totalDistanceBeforeSorting.toStringAsFixed(2)} km\n'
                   'Optimized list: ${_totalDistanceAfterSorting.toStringAsFixed(2)} km\n'
-                  'Total saved distance: ${_totalSavedDistance.toStringAsFixed(2)} km',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  'Total saved distance: ${_totalSavedDistance.toStringAsFixed(2)} km\n'
+                  'Efficiency improvement: ${_improvementPercentage.toStringAsFixed(2)}%',
+                  style: TextStyle(fontSize: 16),
                 ),
               ),
               Expanded(
@@ -297,7 +280,7 @@ class _DeliveryListState extends State<DeliveryList> {
                   child: GoogleMap(
                     initialCameraPosition: CameraPosition(
                       target: LatLng(storeLat, storeLon),
-                      zoom: 18,
+                      zoom: 14,
                     ),
                     onMapCreated: (controller) {
                       _mapController = controller;

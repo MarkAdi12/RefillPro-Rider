@@ -7,16 +7,22 @@ class DraggableSheet extends StatelessWidget {
   final Map<String, dynamic> order;
   final FlutterSecureStorage secureStorage;
   final Function(int orderId) onCompleteDelivery;
+  final String paymentStatus;
 
-  const DraggableSheet(
-      {super.key, required this.order, required this.secureStorage, required this.onCompleteDelivery});
+  const DraggableSheet({
+    super.key,
+    required this.order,
+    required this.secureStorage,
+    required this.onCompleteDelivery,
+    required this.paymentStatus,
+  });
 
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       initialChildSize: 0.16,
       minChildSize: 0.16,
-      maxChildSize: 0.5,
+      maxChildSize: 0.45,
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
@@ -27,7 +33,7 @@ class DraggableSheet extends StatelessWidget {
                 color: Colors.black26,
                 blurRadius: 10.0,
                 spreadRadius: 2.0,
-              )
+              ),
             ],
           ),
           child: SingleChildScrollView(
@@ -69,6 +75,8 @@ class DraggableSheet extends StatelessWidget {
                   ],
                 ),
                 Text('${order['customer']['address']}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 16)),
                 Text('Delivery Instruction:',
                     style:
@@ -113,40 +121,52 @@ class DraggableSheet extends StatelessWidget {
                     Text('₱${order['order_details'][0]['total_price']}'),
                   ],
                 ),
+                if (paymentStatus.isNotEmpty)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        paymentStatus,
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
                 SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     Flexible(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          String? token = await secureStorage.read(
-                              key: 'access_token');
-                          if (token == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      'Access token not found. Please log in again.')),
-                            );
-                            return;
-                          }
+                        child: ElevatedButton(
+                      onPressed: () async {
+                        String? token =
+                            await secureStorage.read(key: 'access_token');
+                        if (token == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Access token not found. Please log in again.')),
+                          );
+                          return;
+                        }
 
-                          int orderId = order['id'];
-                          bool isUpdated = await OrderService()
-                              .updateOrder(token, orderId);
-                          if (isUpdated) {
-                            onCompleteDelivery(orderId); 
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      'Failed to update order. Please try again.')),
-                            );
-                          }
-                        },
-                        child: Text('Complete Delivery'),
-                      ),
-                    ),
+                        int orderId = order['id'];
+                        DateTime deliveryDateTime = DateTime
+                            .now(); // Replace this with user input if needed
+
+                        bool isUpdated = await OrderService()
+                            .updateOrder(token, orderId, deliveryDateTime);
+                        if (isUpdated) {
+                          onCompleteDelivery(orderId);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Failed to update order. Please try again.')),
+                          );
+                        }
+                      },
+                      child: Text('Complete Delivery'),
+                    )),
                   ],
                 ),
                 SizedBox(height: 20),

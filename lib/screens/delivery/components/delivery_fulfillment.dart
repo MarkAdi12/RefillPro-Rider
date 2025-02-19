@@ -1,3 +1,5 @@
+// ignore_for_file: unused_field
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -7,8 +9,10 @@ import 'dart:async';
 import '../../../constants.dart';
 import '../../../services/google_api_service.dart';
 import '../../../services/location_service.dart';
+import '../../../services/order_management_service.dart';
 import '../../../utils/polyline_util.dart';
 import 'delivery_details.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class DeliveryFulfillment extends StatefulWidget {
   final Map<String, dynamic> order;
@@ -21,6 +25,7 @@ class DeliveryFulfillment extends StatefulWidget {
 
 class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
   late GoogleMapController _mapController;
+  bool _cameraMoved = false;
   final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   Set<Circle> _circles = {};
   late double customerLatitude;
@@ -32,6 +37,9 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
   Set<Polyline> _polylines = {};
   Timer? _locationTimer;
   bool _routeFetched = false;
+  bool _isLoadingPayment = false;
+  String _paymentStatusText = '';
+  final FirebaseDatabase _database = FirebaseDatabase.instance;
 
   @override
   void initState() {
@@ -44,6 +52,7 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
     _locationTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       _getCurrentLocation();
     });
+    _fetchPayment();
   }
 
   @override
@@ -58,6 +67,14 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
       setState(() {
         currentLocation = location;
         _addMarkers();
+
+        if (!_cameraMoved && _mapController != null) {
+          _mapController.animateCamera(
+            CameraUpdate.newLatLngZoom(location, 16),
+          );
+          _cameraMoved = true;
+        }
+
         if (currentLocation != null &&
             customerLatitude != 0.0 &&
             customerLongitude != 0.0 &&
@@ -67,21 +84,34 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
           _routeFetched = true;
         }
       });
+      _updateLocationInDatabase(location);
+    }
+  }
+
+  Future<void> _updateLocationInDatabase(LatLng location) async {
+    DatabaseReference locationRef = _database.ref('location');
+    try {
+      await locationRef.update({
+        'lat': location.latitude,
+        'long': location.longitude,
+      });
+      print('Location updated in Firebase');
+    } catch (e) {
+      print('Error updating location in Firebase: $e');
     }
   }
 
   Future<void> _getRoute(LatLng start, LatLng end) async {
-    final String apiKey = 'asdsadasdsadasdsadsadasdsads';
+    final String apiKey =
+        'asdsadasdsadasdsadsadasdsads'; // REPLACE WITH REAL API KEY
     final data = await ApiService.getRoute(start, end, apiKey);
     if (data['routes'].isNotEmpty) {
       final route = data['routes'][0];
       final polylinePoints = route['overview_polyline']['points'];
       _clearPolyline();
       _addPolyline(polylinePoints);
-
       final distance = route['legs'][0]['distance']['text'];
       final duration = route['legs'][0]['duration']['text'];
-
       setState(() {
         _distance = distance;
         _duration = duration;
@@ -119,15 +149,15 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
     );
 
     if (currentLocation != null) {
-      _circles.clear();
-      _circles.add(
-        Circle(
-          circleId: CircleId("current_location"),
-          center: currentLocation!,
-          radius: 8,
-          fillColor: kPrimaryColor,
-          strokeColor: const Color.fromARGB(255, 223, 223, 223),
-          strokeWidth: 2,
+      _markers
+          .removeWhere((marker) => marker.markerId.value == "current_location");
+
+      _markers.add(
+        Marker(
+          markerId: const MarkerId("current_location"),
+          position: currentLocation!,
+          infoWindow: const InfoWindow(title: "Your Location"),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
         ),
       );
     }
@@ -150,6 +180,52 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
     });
   }
 
+  void _fetchPayment() async {
+    setState(() {
+      _isLoadingPayment = true;
+    });
+
+    String? token = await _secureStorage.read(key: 'access_token');
+    if (token == null) {
+      print("Error: Access token not found.");
+      return;
+    }
+
+    try {
+      final paymentData =
+          await OrderService().retrievePayment(token, widget.order['id']);
+      print('Received payment data: $paymentData');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingPayment = false;
+      });
+
+      if (paymentData != null) {
+        if (paymentData['status'] == 1) {
+          setState(() {
+            _paymentStatusText = 'Paid Online';
+          });
+          print('Paid');
+        } else if (paymentData['status'] == 0) {
+          setState(() {
+            _paymentStatusText = 'Online Payment Pending';
+          });
+          print('Pending');
+        }
+      }
+    } catch (e) {
+      print("Error retrieving payment: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingPayment = false;
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error retrieving payment data.")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,35 +234,76 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
         children: [
           Positioned.fill(
             child: Container(
-              height: MediaQuery.of(context).size.height,
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: currentLocation != null &&
-                          customerLatitude != 0.0 &&
-                          customerLongitude != 0.0
-                      ? LatLng(
-                          (currentLocation!.latitude + customerLatitude) / 2,
-                          (currentLocation!.longitude + customerLongitude) / 2,
-                        )
-                      : LatLng(customerLatitude, customerLongitude),
-                  zoom: 16,
-                ),
-                onMapCreated: (controller) {
-                  _mapController = controller;
-                },
-                markers: _markers,
-                circles: _circles,
-                polylines: _polylines,
-                padding: EdgeInsets.only(bottom: 500),
-              ),
-            ),
+                height: MediaQuery.of(context).size.height,
+                child: Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: currentLocation != null &&
+                                customerLatitude != 0.0 &&
+                                customerLongitude != 0.0
+                            ? LatLng(
+                                (currentLocation!.latitude + customerLatitude) /
+                                    2,
+                                (currentLocation!.longitude +
+                                        customerLongitude) /
+                                    2,
+                              )
+                            : LatLng(customerLatitude, customerLongitude),
+                        zoom: 16,
+                      ),
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                      },
+                      markers: _markers,
+                      polylines: _polylines,
+                    ),
+                    // Camera Controller - Rider Loc
+                    Positioned(
+                      bottom: 550,
+                      right: 16,
+                      child: FloatingActionButton(
+                        backgroundColor: Colors.white,
+                        onPressed: () {
+                          if (currentLocation != null) {
+                            _mapController.animateCamera(
+                              CameraUpdate.newLatLngZoom(currentLocation!, 16),
+                            );
+                          }
+                        },
+                        child: Icon(Icons.my_location, color: kPrimaryColor),
+                      ),
+                    ),
+                    // Camera Controller - Customer Loc
+                    Positioned(
+                      bottom: 480,
+                      right: 16,
+                      child: FloatingActionButton(
+                        backgroundColor: Colors.white,
+                        onPressed: () {
+                          if (customerLatitude != 0.0 &&
+                              customerLongitude != 0.0) {
+                            _mapController.animateCamera(
+                              CameraUpdate.newLatLngZoom(
+                                LatLng(customerLatitude, customerLongitude),
+                                16,
+                              ),
+                            );
+                          }
+                        },
+                        child: Icon(Icons.location_history_rounded,
+                            color: kPrimaryColor),
+                      ),
+                    ),
+                  ],
+                )),
           ),
           Positioned(
             top: 10,
             left: 20,
             right: 20,
             child: Container(
-              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 30),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
@@ -202,10 +319,8 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
                     'Order ID: ${widget.order['id']}',
                     style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
                         color: Colors.black),
                   ),
-                  SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -252,7 +367,8 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
                 Navigator.pop(context);
               }
             },
-          ),
+            paymentStatus: _paymentStatusText,
+          )
         ],
       ),
     );

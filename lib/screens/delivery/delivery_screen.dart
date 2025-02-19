@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../constants.dart';
 import '../../services/order_service.dart';
 import 'components/delivery_fulfillment.dart';
 
@@ -74,8 +75,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title:
-            Text('Sorted Delivery List', style: TextStyle(color: Colors.white)),
+        title: Text('Delivery List', style: TextStyle(color: Colors.white)),
         automaticallyImplyLeading: false,
       ),
       body: ListView.builder(
@@ -95,111 +95,132 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
           return Padding(
             padding: const EdgeInsets.all(12.0),
             child: Container(
-              padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 14),
                   ),
                 ],
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Order ID and spacing
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Order #$orderId",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
+                    decoration: const BoxDecoration(
+                      color: kPrimaryColor,
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Order #$orderId",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close),
-                        onPressed: () {
-                          _removeOrder(order[
-                              'id']); // Call the remove function with the correct order ID
-                        },
-                        color: Colors.red,
-                      ),
-                    ],
-                  ),
-                  const Divider(thickness: 1, color: Colors.grey),
-            
-                  // Customer information
-                  Text(
-                    "Customer: ${order['customer']['first_name']} ${order['customer']['last_name']}",
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  Text("Phone: ${order['customer']['phone_number']}"),
-                  Text("Address: ${order['customer']['address']}"),
-                  const Divider(thickness: 1, color: Colors.grey),
-            
-                  // Order details title and price
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Order Details:",
-                        style:
-                            TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                      const Text(
-                        "Price",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                        IconButton(
+                          icon: Icon(Icons.highlight_remove_outlined),
+                          onPressed: () {
+                            _removeOrder(order['id']);
+                          },
+                          color: Colors.white,
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-            
-                  // Order items list
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: order['order_details'].length,
-                    itemBuilder: (context, itemIndex) {
-                      final item = order['order_details'][itemIndex];
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
-                            style: const TextStyle(fontSize: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: const BoxDecoration(
+                       boxShadow: [
+                                  BoxShadow(
+                                    color: Color.fromARGB(255, 122, 122, 122),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.vertical(bottom: Radius.circular(16)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Customer: ${order['customer']['first_name']} ${order['customer']['last_name']}",
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        Text("Phone: ${order['customer']['phone_number']}"),
+                        Text(
+                          "${order['customer']['address']}",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Divider(),
+                        // Product List
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: order['order_details'].length,
+                          itemBuilder: (context, itemIndex) {
+                            final item = order['order_details'][itemIndex];
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                Text(
+                                  "₱${item['product']['price']}",
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const Divider(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Total",
+                              style: TextStyle(fontSize: 15),
+                            ),
+                            Text(
+                              "₱${totalPrice.toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // View details button
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      DeliveryFulfillment(order: order),
+                                ),
+                              );
+                            },
+                            child: const Text('View Details'),
                           ),
-                          Text(
-                            "₱${item['product']['price']}",
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const Divider(thickness: 1, color: Colors.grey),
-            
-                  // View details button
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                DeliveryFulfillment(order: order),
-                          ),
-                        );
-                      },
-                      child: const Text('View Details'),
+                        ),
+                      ],
                     ),
                   ),
                 ],
