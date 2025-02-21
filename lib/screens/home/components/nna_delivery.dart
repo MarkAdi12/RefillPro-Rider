@@ -51,34 +51,40 @@ class _DeliveryListState extends State<DeliveryList> {
         customerLat,
         customerLon,
       );
+      print(
+          'Before Sorting -> Order ID: ${order['id']}, Distance: ${distance.toStringAsFixed(2)} km');
       _totalDistanceBeforeSorting += distance;
       currentLocation = LatLng(customerLat, customerLon);
     }
+    print(
+        'Total Distance Before Sorting: ${_totalDistanceBeforeSorting.toStringAsFixed(2)} km');
   }
 
   void _calculateTotalDistanceAfterSorting() {
     _totalDistanceAfterSorting = 0.0;
     LatLng currentLocation = LatLng(storeLat, storeLon);
+
     for (var order in _sortedOrders) {
-      double customerLat = double.parse(order['customer']['lat'] ?? '0');
-      double customerLon = double.parse(order['customer']['long'] ?? '0');
-      double distance = calculateDistance(
-        currentLocation.latitude,
-        currentLocation.longitude,
-        customerLat,
-        customerLon,
-      );
-      _totalDistanceAfterSorting += distance;
-      currentLocation = LatLng(customerLat, customerLon);
+      double? customerLat = double.tryParse(order['customer']['lat'] ?? '');
+      double? customerLon = double.tryParse(order['customer']['long'] ?? '');
+
+      if (customerLat != null && customerLon != null) {
+        double distance = calculateDistance(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          customerLat,
+          customerLon,
+        );
+        _totalDistanceAfterSorting += distance;
+        currentLocation = LatLng(customerLat, customerLon);
+      }
     }
+
     _totalSavedDistance =
         _totalDistanceBeforeSorting - _totalDistanceAfterSorting;
-    if (_totalDistanceBeforeSorting > 0) {
-      _improvementPercentage =
-          (_totalSavedDistance / _totalDistanceBeforeSorting) * 100;
-    } else {
-      _improvementPercentage = 0.0;
-    }
+    _improvementPercentage = (_totalDistanceBeforeSorting > 0)
+        ? (_totalSavedDistance / _totalDistanceBeforeSorting) * 100
+        : 0.0;
   }
 
   Future<void> _saveDeliveries() async {
@@ -126,6 +132,8 @@ class _DeliveryListState extends State<DeliveryList> {
       markerId: MarkerId('store'),
       position: LatLng(storeLat, storeLon),
       infoWindow: InfoWindow(title: 'Store'),
+      icon: BitmapDescriptor.defaultMarkerWithHue(
+          BitmapDescriptor.hueViolet), // Change color
     ));
 
     // Add markers for customers and calculate the route

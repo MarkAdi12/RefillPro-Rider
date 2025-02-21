@@ -20,11 +20,7 @@ class AppTheme {
           fontFamily: "Eina03",
         ),
       ),
-      textTheme: const TextTheme(
-        bodyLarge: TextStyle(color: kTextColor),
-        bodyMedium: TextStyle(color: kTextColor),
-        bodySmall: TextStyle(color: kTextColor),
-      ),
+
       inputDecorationTheme: const InputDecorationTheme(
         floatingLabelBehavior: FloatingLabelBehavior.always,
         labelStyle: TextStyle(color: kPrimaryColor),
@@ -57,9 +53,3 @@ class AppTheme {
     );
   }
 }
-
-const OutlineInputBorder outlineInputBorder = OutlineInputBorder(
-  borderRadius: BorderRadius.all(Radius.circular(28)),
-  borderSide: BorderSide(color: kTextColor),
-  gapPadding: 10,
-);

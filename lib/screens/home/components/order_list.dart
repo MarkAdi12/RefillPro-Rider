@@ -161,7 +161,6 @@ class _OrderListState extends State<OrderList> {
                                 return Container(
                                   margin:
                                       const EdgeInsets.symmetric(vertical: 6),
-                                 
                                   child: Column(
                                     children: [
                                       Container(
@@ -208,9 +207,10 @@ class _OrderListState extends State<OrderList> {
                                         decoration: const BoxDecoration(
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Color.fromARGB(255, 122, 122, 122),
+                                              color: Color.fromARGB(
+                                                  255, 122, 122, 122),
                                               blurRadius: 8,
-                                              offset:  Offset(0, 4),
+                                              offset: Offset(0, 4),
                                             ),
                                           ],
                                           color: Colors.white,
@@ -296,7 +296,6 @@ class _OrderListState extends State<OrderList> {
                               padding: const EdgeInsets.all(12.0),
                               child: ElevatedButton(
                                 onPressed: () {
-                                  // Filter the selected orders using _selectedOrderIds
                                   final selectedOrders = _orders.where((order) {
                                     return _selectedOrderIds
                                         .contains(order['id']);

@@ -1,9 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:rider_and_clerk_application/screens/calc.dart';
-
 import '/screens/sign_in/sign_in_screen.dart';
 import 'package:flutter/material.dart';
-
 import 'components/settings_menu.dart';
 
 class MenuScreen extends StatelessWidget {
@@ -12,7 +9,8 @@ class MenuScreen extends StatelessWidget {
   void _logout(BuildContext context) async {
     const FlutterSecureStorage secureStorage = FlutterSecureStorage();
 
-    await secureStorage.delete(key: 'access_token');  // Remove stored access token
+    await secureStorage.delete(
+        key: 'access_token'); // Remove stored access token
     await secureStorage.delete(key: 'refresh_token'); // Remove refresh token
 
     // Redirect to login screen
@@ -21,7 +19,6 @@ class MenuScreen extends StatelessWidget {
       MaterialPageRoute(builder: (context) => SignInScreen()),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -39,9 +36,7 @@ class MenuScreen extends StatelessWidget {
             ProfileMenu(
               text: "Profile",
               icon: Icons.person_2_rounded,
-              press: () => {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => NNAcalculator()))
-              },
+              press: () => {},
             ),
             ProfileMenu(
               text: "Change Password",

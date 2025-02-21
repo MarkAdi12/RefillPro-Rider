@@ -38,7 +38,6 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   Future<void> _removeOrder(int orderId) async {
-    // Remove the selected order from SharedPreferences
     List<Map<String, dynamic>> updatedOrders =
         List.from(_sortedOrders); // Create a copy of the list
     updatedOrders.removeWhere((order) => order['id'] == orderId);
@@ -50,6 +49,20 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     // Update the UI list
     setState(() {
       _sortedOrders = updatedOrders; // Only update with the modified list
+    });
+  }
+
+  Future<void> _removeAllOrders() async {
+    // Clear the list
+    List<Map<String, dynamic>> updatedOrders = [];
+
+    // Update SharedPreferences
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('delivery_list', jsonEncode(updatedOrders));
+
+    // Update the UI
+    setState(() {
+      _sortedOrders = updatedOrders;
     });
   }
 
@@ -77,6 +90,13 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       appBar: AppBar(
         title: Text('Delivery List', style: TextStyle(color: Colors.white)),
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            onPressed: _removeAllOrders, // Call the function correctly
+            icon: Icon(Icons.delete,
+                color: Colors.white), // Use Icon widget properly
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: _sortedOrders.length,
@@ -140,13 +160,13 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
-                       boxShadow: [
-                                  BoxShadow(
-                                    color: Color.fromARGB(255, 122, 122, 122),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color.fromARGB(255, 122, 122, 122),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                       color: Colors.white,
                       borderRadius:
                           BorderRadius.vertical(bottom: Radius.circular(16)),

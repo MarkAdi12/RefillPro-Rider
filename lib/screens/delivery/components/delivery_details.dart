@@ -133,40 +133,63 @@ class DraggableSheet extends StatelessWidget {
                   ),
                 SizedBox(height: 8),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Flexible(
-                        child: ElevatedButton(
-                      onPressed: () async {
-                        String? token =
-                            await secureStorage.read(key: 'access_token');
-                        if (token == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text(
-                                    'Access token not found. Please log in again.')),
-                          );
-                          return;
-                        }
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final String? token =
+                              await secureStorage.read(key: 'access_token');
 
-                        int orderId = order['id'];
-                        DateTime deliveryDateTime = DateTime
-                            .now(); // Replace this with user input if needed
-
-                        bool isUpdated = await OrderService()
-                            .updateOrder(token, orderId, deliveryDateTime);
-                        if (isUpdated) {
-                          onCompleteDelivery(orderId);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
+                          if (token == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
                                 content: Text(
-                                    'Failed to update order. Please try again.')),
+                                    'Access token not found. Please log in again.'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          int orderId = order['id'];
+                          DateTime deliveryDateTime = DateTime
+                              .now(); // Replace with user input if needed
+
+                          bool isUpdated = await OrderService()
+                              .updateOrder(token, orderId, deliveryDateTime);
+
+                          if (isUpdated) {
+                            onCompleteDelivery(orderId);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'Failed to update order. Please try again.'),
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('Complete Delivery'),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Flexible(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Failed delivery action not implemented.'),
+                            ),
                           );
-                        }
-                      },
-                      child: Text('Complete Delivery'),
-                    )),
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Colors.red, 
+                        ),
+                        child: const Text('Failed Delivery'),
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(height: 20),
