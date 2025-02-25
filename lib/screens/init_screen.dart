@@ -1,19 +1,17 @@
 import 'package:rider_and_clerk_application/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:rider_and_clerk_application/screens/delivery/delivery_screen.dart';
+import 'package:rider_and_clerk_application/screens/home/components/order_list.dart';
 import 'package:rider_and_clerk_application/screens/home/home_screen.dart';
 import 'package:rider_and_clerk_application/screens/reports/report_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-
 const Color inActiveIconColor = Color(0xFFB6B6B6);
 
 class InitScreen extends StatefulWidget {
   final int initialIndex;
-
   const InitScreen({super.key, this.initialIndex = 0});
-
   @override
   State<InitScreen> createState() => _InitScreenState();
 }
@@ -45,22 +43,9 @@ class _InitScreenState extends State<InitScreen> {
     }
   }
 
-  Future<void> _saveDeliveries() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('delivery_list', jsonEncode(sortedOrders));
-  }
-
-  Future<void> _clearDeliveries() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('delivery_list');
-    setState(() {
-      sortedOrders = [];
-    });
-  }
-
   final List<Widget> pages = [
-    const HomeScreen(),
-     DeliveryScreen(),
+     HomeScreen(),
+    DeliveryScreen(),
     const ReportScreen(),
   ];
 

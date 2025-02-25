@@ -1,10 +1,12 @@
 import 'dart:convert';
-
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/order_service.dart';
 import 'components/delivery_fulfillment.dart';
+import '../../../services/order_management_service.dart';
 
 class DeliveryScreen extends StatefulWidget {
   const DeliveryScreen({super.key});
@@ -16,16 +18,33 @@ class DeliveryScreen extends StatefulWidget {
 class _DeliveryScreenState extends State<DeliveryScreen> {
   List<Map<String, dynamic>> _sortedOrders = [];
   bool _isLoading = true;
+  final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
+
+  Future<void> _updateOrderStatusInFirebase(String orderId, int status) async {
+    await _database.child('orders/$orderId').set({
+      'status': status,
+    });
+    print('Order $orderId status updated to $status');
+  }
 
   @override
   void initState() {
     super.initState();
     _loadSavedOrders();
+
+    // Listen for when we return to this screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ModalRoute.of(context)!.addScopedWillPopCallback(() async {
+        _loadSavedOrders(); // Refresh the list
+        return true;
+      });
+    });
   }
 
   Future<void> _loadSavedOrders() async {
     List<Map<String, dynamic>> loadedOrders =
-        await OrderService.loadSavedOrders();
+        await SavedOrders.loadSavedOrders();
     setState(() {
       _sortedOrders = loadedOrders;
       _isLoading = false;
@@ -228,16 +247,44 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      DeliveryFulfillment(order: order),
-                                ),
-                              );
+                            onPressed: () async {
+                              final String? token = await _secureStorage.read(
+                                  key: 'access_token');
+                              if (token == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Access token not found. Please log in again.'),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              int orderId = order['id'];
+                              DateTime deliveryDateTime = DateTime.now();
+                              int status = 3;
+                              bool isUpdated = await OrderService().updateOrder(
+                                  token, orderId, deliveryDateTime, status);
+                              if (isUpdated) {
+                                await _updateOrderStatusInFirebase(
+                                    orderId.toString(), 3);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        DeliveryFulfillment(order: order),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Failed to update order. Please try again.'),
+                                  ),
+                                );
+                              }
                             },
-                            child: const Text('View Details'),
+                            child: const Text('Accept Order'),
                           ),
                         ),
                       ],

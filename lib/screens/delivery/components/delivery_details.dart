@@ -1,21 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../constants.dart';
 import '../../../services/order_management_service.dart';
+import 'package:firebase_database/firebase_database.dart';
+import '../../../services/payment_service.dart';
 
-class DraggableSheet extends StatelessWidget {
+class DraggableSheet extends StatefulWidget {
   final Map<String, dynamic> order;
   final FlutterSecureStorage secureStorage;
   final Function(int orderId) onCompleteDelivery;
   final String paymentStatus;
 
-  const DraggableSheet({
-    super.key,
+  DraggableSheet({
+    Key? key,
     required this.order,
     required this.secureStorage,
     required this.onCompleteDelivery,
     required this.paymentStatus,
-  });
+  }) : super(key: key);
+
+  @override
+  _DraggableSheetState createState() => _DraggableSheetState();
+}
+
+class _DraggableSheetState extends State<DraggableSheet> {
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
+  bool _isLoading = false;
+
+  Future<void> _updateOrderStatusInFirebase(String orderId, int status) async {
+    await _database.child('orders/$orderId').set({
+      'status': status,
+    });
+    print('Order $orderId status updated to $status');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,22 +77,49 @@ class DraggableSheet extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      '${order['customer']['first_name']} ${order['customer']['last_name']}',
+                      '${widget.order['customer']['first_name']} ${widget.order['customer']['last_name']}',
                       style: TextStyle(fontSize: 16),
                     ),
                     Spacer(),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.phone, size: 22, color: kPrimaryColor),
+                        GestureDetector(
+                          onTap: () async {
+                            final phoneNumber = {
+                              widget.order['customer']['phone_number']
+                            };
+                            final Uri telUri = Uri.parse("tel:$phoneNumber");
+                            if (await canLaunchUrl(telUri)) {
+                              await launchUrl(telUri);
+                            } else {
+                              print("Could not launch dialer");
+                            }
+                          },
+                          child:
+                              Icon(Icons.phone, size: 22, color: kPrimaryColor),
+                        ),
                         SizedBox(width: 8),
-                        Icon(Icons.message_rounded,
-                            size: 22, color: kPrimaryColor),
+                        GestureDetector(
+                          onTap: () async {
+                            final String phoneNumber =
+                                widget.order['customer']['phone_number'];
+                            final Uri smsUri = Uri.parse("sms:$phoneNumber");
+
+                            if (await canLaunchUrl(smsUri)) {
+                              await launchUrl(smsUri);
+                            } else {
+                              print("Could not launch messaging app");
+                            }
+                          },
+                          child: Icon(Icons.message_rounded,
+                              size: 22, color: kPrimaryColor),
+                        ),
                       ],
                     ),
                   ],
                 ),
-                Text('${order['customer']['address']}',
+                Text('${widget.order['customer']['address']}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 16)),
@@ -82,7 +127,7 @@ class DraggableSheet extends StatelessWidget {
                     style:
                         TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 Text(
-                  '${order['remarks']?.isNotEmpty ?? false ? order['remarks'] : "None"}',
+                  '${widget.order['remarks']?.isNotEmpty ?? false ? widget.order['remarks'] : "None"}',
                   style: TextStyle(fontSize: 16),
                 ),
                 Divider(),
@@ -90,17 +135,18 @@ class DraggableSheet extends StatelessWidget {
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 Column(
-                  children: order['order_details']?.map<Widget>((orderDetail) {
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                                '${double.parse(orderDetail['quantity']).toInt()} x ${orderDetail['product']['name']}'),
-                            Text('${orderDetail['total_price']}'),
-                          ],
-                        );
-                      }).toList() ??
-                      [Text("No items in order")],
+                  children:
+                      widget.order['order_details']?.map<Widget>((orderDetail) {
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                    '${double.parse(orderDetail['quantity']).toInt()} x ${orderDetail['product']['name']}'),
+                                Text('${orderDetail['total_price']}'),
+                              ],
+                            );
+                          }).toList() ??
+                          [Text("No items in order")],
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -108,7 +154,7 @@ class DraggableSheet extends StatelessWidget {
                     Text('Subtotal:',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('₱${order['order_details'][0]['total_price']}'),
+                    Text('₱${widget.order['order_details'][0]['total_price']}'),
                   ],
                 ),
                 SizedBox(height: 8),
@@ -118,16 +164,22 @@ class DraggableSheet extends StatelessWidget {
                     Text('Total Price: ',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('₱${order['order_details'][0]['total_price']}'),
+                    Text('₱${widget.order['order_details'][0]['total_price']}'),
                   ],
                 ),
-                if (paymentStatus.isNotEmpty)
+                if (widget.paymentStatus.isNotEmpty)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        paymentStatus,
-                        style: TextStyle(fontSize: 16),
+                        widget.paymentStatus == 'Paid'
+                            ? 'Paid Online'
+                            : widget.paymentStatus,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
                       ),
                     ],
                   ),
@@ -137,55 +189,161 @@ class DraggableSheet extends StatelessWidget {
                   children: [
                     Flexible(
                       child: ElevatedButton(
-                        onPressed: () async {
-                          final String? token =
-                              await secureStorage.read(key: 'access_token');
+                        onPressed: _isLoading
+                            ? null
+                            : () async {
+                                setState(() {
+                                  _isLoading = true;
+                                });
 
-                          if (token == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Access token not found. Please log in again.'),
-                              ),
-                            );
-                            return;
-                          }
+                                final String? token = await widget.secureStorage
+                                    .read(key: 'access_token');
+                                if (token == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Access token not found. Please log in again.'),
+                                    ),
+                                  );
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                  return;
+                                }
 
-                          int orderId = order['id'];
-                          DateTime deliveryDateTime = DateTime
-                              .now(); // Replace with user input if needed
+                                int orderId = widget.order['id'];
 
-                          bool isUpdated = await OrderService()
-                              .updateOrder(token, orderId, deliveryDateTime);
+                                // Convert amount safely
+                                double? orderAmount = double.tryParse(widget
+                                        .order['order_details']?[0]
+                                            ?['total_price']
+                                        ?.toString() ??
+                                    "0.0");
 
-                          if (isUpdated) {
-                            onCompleteDelivery(orderId);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Failed to update order. Please try again.'),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text('Complete Delivery'),
+                                if (orderAmount == null || orderAmount <= 0) {
+                                  print(
+                                      "Error: Invalid order amount for Order ID: $orderId");
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Invalid order amount.')),
+                                  );
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                  return;
+                                }
+
+                                DateTime deliveryDateTime = DateTime.now();
+                                int status = 4;
+
+                                final paymentData = await PaymentService()
+                                    .retrievePayment(token, orderId);
+
+                                if (paymentData == null) {
+                                  // If no payment exists, create a cash payment.
+                                  await PaymentService().createPayment(
+                                    token,
+                                    orderId,
+                                    0, // Cash payment method
+                                    "", // No reference code for cash
+                                    orderAmount.toStringAsFixed(
+                                        2), // Convert double to formatted string
+                                    "Auto-generated cash payment",
+                                    // Payment status (1 = completed)
+                                  );
+                                  print(
+                                      "Auto-created cash payment for Order ID: $orderId, Amount: $orderAmount");
+                                } else {
+                                  print(
+                                      "Payment already exists for Order ID: $orderId, skipping creation.");
+                                }
+                                print(
+                                    "Updating order status for Order ID: $orderId...");
+                                bool isUpdated = await OrderService()
+                                    .updateOrder(token, orderId,
+                                        deliveryDateTime, status);
+
+                                if (isUpdated) {
+                                  print(
+                                      "Order ID: $orderId successfully updated to status $status.");
+                                  await _updateOrderStatusInFirebase(
+                                      orderId.toString(), 4);
+                                  widget.onCompleteDelivery(orderId);
+                                } else {
+                                  print(
+                                      "Failed to update order for Order ID: $orderId");
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Failed to update order. Please try again.')),
+                                  );
+                                }
+
+                                setState(() {
+                                  _isLoading = false;
+                                });
+                              },
+                        child: _isLoading
+                            ? CircularProgressIndicator(
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              )
+                            : const Text('Complete Delivery'),
                       ),
                     ),
                     SizedBox(width: 12),
                     Flexible(
                       child: ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Failed delivery action not implemented.'),
-                            ),
-                          );
-                        },
+                        onPressed: _isLoading
+                            ? null
+                            : () async {
+                                final String? token = await widget.secureStorage
+                                    .read(key: 'access_token');
+                                if (token == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Access token not found. Please log in again.'),
+                                    ),
+                                  );
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                  return;
+                                }
+
+                                DateTime deliveryDateTime = DateTime.now();
+                                int status = 6;
+                                int orderId = widget.order['id'];
+                                bool isUpdated = await OrderService()
+                                    .updateOrder(token, orderId,
+                                        deliveryDateTime, status);
+
+                                if (isUpdated) {
+                                  print(
+                                      "Order ID: $orderId successfully updated to status $status.");
+                                  await _updateOrderStatusInFirebase(
+                                      orderId.toString(), 6);
+                                  widget.onCompleteDelivery(orderId);
+                                } else {
+                                  print(
+                                      "Failed to update order for Order ID: $orderId");
+                                  await _updateOrderStatusInFirebase(
+                                      orderId.toString(), 6);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Failed to update order. Please try again.'),
+                                    ),
+                                  );
+                                }
+
+                                setState(() {
+                                  _isLoading = false;
+                                });
+                              },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Colors.red, 
+                          backgroundColor: Colors.red,
                         ),
                         child: const Text('Failed Delivery'),
                       ),

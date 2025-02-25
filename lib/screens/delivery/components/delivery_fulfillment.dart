@@ -4,12 +4,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:rider_and_clerk_application/screens/init_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../../../constants.dart';
 import '../../../services/google_api_service.dart';
 import '../../../services/location_service.dart';
-import '../../../services/order_management_service.dart';
+import '../../../services/payment_service.dart';
 import '../../../utils/polyline_util.dart';
 import 'delivery_details.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -59,6 +60,53 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
   void dispose() {
     _locationTimer?.cancel();
     super.dispose();
+    _fetchPayment();
+  }
+
+  void _fetchPayment() async {
+    setState(() {
+      _isLoadingPayment = true;
+    });
+
+    String? token = await _secureStorage.read(key: 'access_token');
+    if (token == null) {
+      print("Error: Access token not found.");
+      return;
+    }
+
+    try {
+      final paymentData =
+          await PaymentService().retrievePayment(token, widget.order['id']);
+      print('Received payment data: $paymentData');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingPayment = false;
+      });
+
+      if (paymentData != null) {
+        if (paymentData['status'] == 1) {
+          setState(() {
+            _paymentStatusText = 'Paid Online';
+          });
+          print('Paid');
+        } else if (paymentData['status'] == 0) {
+          setState(() {
+            _paymentStatusText = 'Online Payment Pending';
+          });
+          print('Pending');
+        }
+      }
+    } catch (e) {
+      print("Error retrieving payment: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingPayment = false;
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error retrieving payment data.")),
+      );
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -180,52 +228,6 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
     });
   }
 
-  void _fetchPayment() async {
-    setState(() {
-      _isLoadingPayment = true;
-    });
-
-    String? token = await _secureStorage.read(key: 'access_token');
-    if (token == null) {
-      print("Error: Access token not found.");
-      return;
-    }
-
-    try {
-      final paymentData =
-          await OrderService().retrievePayment(token, widget.order['id']);
-      print('Received payment data: $paymentData');
-      if (!mounted) return;
-      setState(() {
-        _isLoadingPayment = false;
-      });
-
-      if (paymentData != null) {
-        if (paymentData['status'] == 1) {
-          setState(() {
-            _paymentStatusText = 'Paid Online';
-          });
-          print('Paid');
-        } else if (paymentData['status'] == 0) {
-          setState(() {
-            _paymentStatusText = 'Online Payment Pending';
-          });
-          print('Pending');
-        }
-      }
-    } catch (e) {
-      print("Error retrieving payment: $e");
-      if (mounted) {
-        setState(() {
-          _isLoadingPayment = false;
-        });
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error retrieving payment data.")),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -317,9 +319,7 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
                 children: [
                   Text(
                     'Order ID: ${widget.order['id']}',
-                    style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.black),
+                    style: TextStyle(fontSize: 18, color: Colors.black),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -364,7 +364,14 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
             onCompleteDelivery: (orderId) async {
               await clearSelectedDelivery(orderId);
               if (mounted) {
-                Navigator.pop(context);
+                setState(() {
+                  Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => InitScreen(
+                                initialIndex: 1,
+                              )));
+                });
               }
             },
             paymentStatus: _paymentStatusText,

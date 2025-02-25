@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class OrderService {
+class SavedOrders {
   static Future<List<Map<String, dynamic>>> loadSavedOrders() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? savedData = prefs.getString('delivery_list');
