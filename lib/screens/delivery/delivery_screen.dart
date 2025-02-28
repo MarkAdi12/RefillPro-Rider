@@ -18,6 +18,7 @@ class DeliveryScreen extends StatefulWidget {
 class _DeliveryScreenState extends State<DeliveryScreen> {
   List<Map<String, dynamic>> _sortedOrders = [];
   bool _isLoading = true;
+  bool _isPressed = false;
   final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
 
@@ -49,11 +50,6 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       _sortedOrders = loadedOrders;
       _isLoading = false;
     });
-
-    if (_sortedOrders.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('No saved orders found.')));
-    }
   }
 
   Future<void> _removeOrder(int orderId) async {
@@ -111,9 +107,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            onPressed: _removeAllOrders, // Call the function correctly
-            icon: Icon(Icons.delete,
-                color: Colors.white), // Use Icon widget properly
+            onPressed: _removeAllOrders,
+            icon: Icon(Icons.delete, color: Colors.white),
           ),
         ],
       ),
@@ -247,44 +242,73 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: ElevatedButton(
-                            onPressed: () async {
-                              final String? token = await _secureStorage.read(
-                                  key: 'access_token');
-                              if (token == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Access token not found. Please log in again.'),
-                                  ),
-                                );
-                                return;
-                              }
+                            onPressed: _isPressed
+                                ? null // Disable button if already pressed
+                                : () async {
+                                    setState(() {
+                                      _isPressed =
+                                          true; // Disable button and show loading indicator
+                                    });
 
-                              int orderId = order['id'];
-                              DateTime deliveryDateTime = DateTime.now();
-                              int status = 3;
-                              bool isUpdated = await OrderService().updateOrder(
-                                  token, orderId, deliveryDateTime, status);
-                              if (isUpdated) {
-                                await _updateOrderStatusInFirebase(
-                                    orderId.toString(), 3);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        DeliveryFulfillment(order: order),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Failed to update order. Please try again.'),
-                                  ),
-                                );
-                              }
-                            },
-                            child: const Text('Accept Order'),
+                                    final String? token = await _secureStorage
+                                        .read(key: 'access_token');
+                                    if (token == null) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Access token not found. Please log in again.'),
+                                        ),
+                                      );
+                                      setState(() {
+                                        _isPressed = false; // Re-enable button
+                                      });
+                                      return;
+                                    }
+
+                                    int orderId = order['id'];
+                                    DateTime deliveryDateTime = DateTime.now();
+                                    int status = 3;
+                                    bool isUpdated = await OrderService()
+                                        .updateOrder(token, orderId,
+                                            deliveryDateTime, status);
+
+                                    if (isUpdated) {
+                                      await _updateOrderStatusInFirebase(
+                                          orderId.toString(), 3);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              DeliveryFulfillment(order: order),
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Failed to update order. Please try again.'),
+                                        ),
+                                      );
+                                    }
+
+                                    setState(() {
+                                      _isPressed =
+                                          false; // Re-enable button after process
+                                    });
+                                  },
+                            child: _isPressed
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors
+                                          .white, // Adjust color as needed
+                                    ),
+                                  )
+                                : const Text('Accept Order'),
                           ),
                         ),
                       ],

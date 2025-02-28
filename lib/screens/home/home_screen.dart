@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPendingOrders(); // Load orders from pending_list when the screen initializes
+    _loadPendingOrders();
   }
 
   Future<List<dynamic>> _getFilteredPendingOrders() async {
@@ -99,20 +99,19 @@ class _HomeScreenState extends State<HomeScreen> {
           .where((order) => order['status'] == 0 || order['status'] == 1)
           .toList();
 
-      // Filter out orders that are already in delivery_list
+      // Get existing pending list
       List<dynamic> filteredOrders = await _getFilteredPendingOrders();
-      filteredOrders.addAll(pendingOrders.where((order) {
-        return !filteredOrders
-            .any((filteredOrder) => filteredOrder['id'] == order['id']);
-      }));
 
-      // Save the filtered orders to pending_list
-      await _savePendingList(filteredOrders);
+      // Merge new orders while avoiding duplicates
+      List<dynamic> updatedOrders = [
+        ...filteredOrders,
+        ...pendingOrders.where((order) => !filteredOrders
+            .any((filteredOrder) => filteredOrder['id'] == order['id']))
+      ];
 
-      setState(() {
-        _orders = filteredOrders;
-        _isLoading = false;
-      });
+      // Save and reload orders to ensure UI updates
+      await _savePendingList(updatedOrders);
+      await _loadPendingOrders(); // Ensure UI reflects latest pending orders
     } catch (e) {
       setState(() {
         _isLoading = false;

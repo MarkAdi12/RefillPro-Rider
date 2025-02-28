@@ -21,7 +21,7 @@ class ReportScreen extends StatelessWidget {
       body: SingleChildScrollView( 
         child: Column(
           children: [
-            const ReportCard(), 
+      
           ],
         ),
       ),

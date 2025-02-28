@@ -213,10 +213,19 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
 
   Future<void> clearSelectedDelivery(int orderId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<Map<String, dynamic>> sortedOrders = List<Map<String, dynamic>>.from(
+
+    // remove from delivery_list
+    List<Map<String, dynamic>> deliveryOrders = List<Map<String, dynamic>>.from(
         jsonDecode(prefs.getString('delivery_list') ?? '[]'));
-    sortedOrders.removeWhere((order) => order['id'] == orderId);
-    await prefs.setString('delivery_list', jsonEncode(sortedOrders));
+    deliveryOrders.removeWhere((order) => order['id'] == orderId);
+    await prefs.setString('delivery_list', jsonEncode(deliveryOrders));
+
+    // remove from pending_list
+    List<Map<String, dynamic>> pendingOrders = List<Map<String, dynamic>>.from(
+        jsonDecode(prefs.getString('pending_list') ?? '[]'));
+    pendingOrders.removeWhere((order) => order['id'] == orderId);
+    await prefs.setString('pending_list', jsonEncode(pendingOrders));
+
     if (mounted) {
       setState(() {});
     }
