@@ -59,6 +59,30 @@ class _SignFormState extends State<SignForm> {
       await _secureStorage.write(key: 'access_token', value: accessToken);
       print("🔒 Token stored securely");
 
+      String? fcmToken = await _secureStorage.read(key: 'fcm_token');
+      if (fcmToken == null || fcmToken.isEmpty) {
+        print("fcm empty");
+        return;
+      } else {
+        print("FCM token found: $fcmToken");
+      }
+
+      final updatedData = {
+        "firebase_tokens": fcmToken,
+      };
+      print("🚀 Sending updated data: $updatedData");
+
+      try {
+        final response = await _authService.editUser(accessToken, updatedData);
+        if (response != null) {
+          print('FCM token saved');
+        } else {
+          print('FCM token failed to save');
+        }
+      } catch (e) {
+        print('Error updating FCM token: $e');
+      }
+
       final userData = await _authService.getUser(accessToken);
       if (userData != null) {
         Navigator.pushReplacement(

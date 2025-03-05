@@ -8,6 +8,24 @@ class AuthService {
   final String loginUrl = 'https://refillpro.store/api/v1/rider/login/';
   final String userUrl = 'https://refillpro.store/api/v1/user/';
 
+    // Edit User Details
+  Future<Map<String, dynamic>?> editUser(String accessToken, Map<String, dynamic> updatedData) async {
+    final response = await http.post(
+      Uri.parse(userUrl),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(updatedData), 
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body); 
+    } else {
+      print('Failed to update user data: ${response.body}');
+      return null;
+    }
+  }
+
 
   Future<Map<String, dynamic>?> login(String username, String password) async {
     final response = await http.post(

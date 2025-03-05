@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:rider_and_clerk_application/screens/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants.dart';
+import '../../services/notification_service.dart';
 import '../../services/order_management_service.dart';
 import 'components/nna_delivery.dart';
 
@@ -24,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadPendingOrders();
+
+    NotificationService.instance.initialize(onRefresh: _getOrders);
   }
 
   Future<List<dynamic>> _getFilteredPendingOrders() async {
@@ -81,7 +85,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return false;
   }
 
-  // Fetch orders from the API
   Future<void> _getOrders() async {
     String? token = await _secureStorage.read(key: 'access_token');
 
@@ -99,19 +102,16 @@ class _HomeScreenState extends State<HomeScreen> {
           .where((order) => order['status'] == 0 || order['status'] == 1)
           .toList();
 
-      // Get existing pending list
       List<dynamic> filteredOrders = await _getFilteredPendingOrders();
 
-      // Merge new orders while avoiding duplicates
       List<dynamic> updatedOrders = [
         ...filteredOrders,
         ...pendingOrders.where((order) => !filteredOrders
             .any((filteredOrder) => filteredOrder['id'] == order['id']))
       ];
 
-      // Save and reload orders to ensure UI updates
       await _savePendingList(updatedOrders);
-      await _loadPendingOrders(); // Ensure UI reflects latest pending orders
+      await _loadPendingOrders();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -126,6 +126,12 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Text('Pending Orders'),
         automaticallyImplyLeading: false,
+        leading: IconButton(
+            onPressed: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => MenuScreen()));
+            },
+            icon: Icon(Icons.settings)),
         actions: [
           IconButton(
             onPressed: () {

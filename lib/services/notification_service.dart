@@ -16,19 +16,21 @@ class NotificationService {
   final _localNotifications = FlutterLocalNotificationsPlugin();
   bool _isFlutterLocalNotificationsInitialized = false;
 
-  Future<void> initialize() async {
+  // Add a callback function
+  Function()? onRefreshCallback;
+  Future<void> initialize({Function()? onRefresh}) async {
+    // Assign the callback
+    onRefreshCallback = onRefresh;
+
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    // Request permission
     await _requestPermission();
-    // Setup message handlers
     await _setupMessageHandlers();
-    // Get FCM token
     await _getAndStoreToken();
   }
 
   Future<void> _getAndStoreToken() async {
     final token = await _messaging.getToken();
-    print('FCM Token: $token');
+    
     if (token != null) {
       // Save the token securely using FlutterSecureStorage or a similar package
       await _saveToken(token);
@@ -120,6 +122,9 @@ class NotificationService {
         ),
         payload: message.data.toString(),
       );
+      if (notification.title == 'refresh') {
+        NotificationService.instance._performRefresh();
+      }
     }
   }
 
@@ -139,8 +144,16 @@ class NotificationService {
   }
 
   void _handleBackgroundMessage(RemoteMessage message) {
-    if (message.data['type'] == 'chat') {
-      // open chat screen
+    final notificationTitle = message.notification?.title;
+
+    if (notificationTitle == 'refresh') {
+      // Trigger the refresh action
+      NotificationService.instance._performRefresh();
+    } else if (message.data['type'] == 'chat') {
     }
+  }
+
+  void _performRefresh() {
+    onRefreshCallback?.call();
   }
 }

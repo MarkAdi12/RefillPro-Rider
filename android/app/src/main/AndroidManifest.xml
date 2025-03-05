@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <application
-        android:label="Refillpro - Rider"
+        android:label="AquaZen - Rider"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

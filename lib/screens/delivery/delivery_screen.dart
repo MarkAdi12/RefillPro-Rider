@@ -34,10 +34,9 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     super.initState();
     _loadSavedOrders();
 
-    // Listen for when we return to this screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ModalRoute.of(context)!.addScopedWillPopCallback(() async {
-        _loadSavedOrders(); // Refresh the list
+        _loadSavedOrders(); 
         return true;
       });
     });
@@ -295,7 +294,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
 
                                     setState(() {
                                       _isPressed =
-                                          false; // Re-enable button after process
+                                          false; 
                                     });
                                   },
                             child: _isPressed
@@ -305,7 +304,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                       color: Colors
-                                          .white, // Adjust color as needed
+                                          .white, 
                                     ),
                                   )
                                 : const Text('Accept Order'),

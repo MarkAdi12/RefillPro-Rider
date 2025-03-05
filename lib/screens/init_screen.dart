@@ -1,9 +1,7 @@
 import 'package:rider_and_clerk_application/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:rider_and_clerk_application/screens/delivery/delivery_screen.dart';
-import 'package:rider_and_clerk_application/screens/home/components/order_list.dart';
 import 'package:rider_and_clerk_application/screens/home/home_screen.dart';
-import 'package:rider_and_clerk_application/screens/reports/report_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -44,9 +42,8 @@ class _InitScreenState extends State<InitScreen> {
   }
 
   final List<Widget> pages = [
-     HomeScreen(),
+    HomeScreen(),
     DeliveryScreen(),
-    const ReportScreen(),
   ];
 
   @override
@@ -73,12 +70,7 @@ class _InitScreenState extends State<InitScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.delivery_dining_outlined, size: 22),
             activeIcon: Icon(Icons.delivery_dining, size: 26),
-            label: "Track",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_2_outlined, size: 22),
-            activeIcon: Icon(Icons.person_2_rounded, size: 26),
-            label: "",
+            label: "Delivery",
           ),
         ],
       ),

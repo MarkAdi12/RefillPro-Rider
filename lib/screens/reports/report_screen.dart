@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:rider_and_clerk_application/screens/reports/components/report_card.dart';
 import 'package:rider_and_clerk_application/screens/settings/settings_screen.dart';
 
 class ReportScreen extends StatelessWidget {
@@ -17,13 +16,6 @@ class ReportScreen extends StatelessWidget {
         }, 
         icon: Icon(Icons.settings))
         ],
-      ),
-      body: SingleChildScrollView( 
-        child: Column(
-          children: [
-      
-          ],
-        ),
       ),
     );
   }
