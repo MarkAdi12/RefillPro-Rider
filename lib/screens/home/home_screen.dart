@@ -135,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             onPressed: () {
-              _getOrders(); // Refresh orders
+              _getOrders(); 
             },
             icon: Icon(Icons.refresh),
             iconSize: 26,
@@ -147,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : _errorMessage != null
               ? Center(child: Text(_errorMessage!))
               : _orders.isEmpty
-                  ? const Center(child: Text("No orders available"))
+                  ? const Center(child: Text("No orders available.", style: TextStyle(fontSize: 16),))
                   : Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: Column(

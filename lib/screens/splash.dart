@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'init_screen.dart'; 
+import 'init_screen.dart';
 import 'sign_in/sign_in_screen.dart';
-
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -20,10 +19,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateAfterSplash() async {
-    await Future.delayed(Duration(seconds: 10));
-
+    await Future.delayed(Duration(seconds: 3));
     String? storedToken = await _secureStorage.read(key: 'access_token');
-
     if (storedToken != null) {
       Navigator.pushReplacement(
         context,
@@ -40,9 +37,16 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, 
-      body: Center(
-        child: Image.asset('assets/logo.jpg', width: 200), // Your logo
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          color: Color(0xFF06297B),
+        ),
+        child: Image.asset(
+          'assets/icon.png',
+          fit: BoxFit.fitWidth,
+        ),
       ),
     );
   }
