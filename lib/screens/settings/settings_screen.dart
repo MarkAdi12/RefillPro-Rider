@@ -34,26 +34,6 @@ class MenuScreen extends StatelessWidget {
         child: Column(
           children: [
             ProfileMenu(
-              text: "Profile",
-              icon: Icons.person_2_rounded,
-              press: () => {},
-            ),
-            ProfileMenu(
-              text: "Change Password",
-              icon: Icons.notifications,
-              press: () {},
-            ),
-            ProfileMenu(
-              text: "Settings",
-              icon: Icons.settings,
-              press: () {},
-            ),
-            ProfileMenu(
-              text: "Help Center",
-              icon: Icons.help,
-              press: () {},
-            ),
-            ProfileMenu(
               text: "Log Out",
               icon: Icons.logout_rounded,
               press: () {

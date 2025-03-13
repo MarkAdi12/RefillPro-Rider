@@ -18,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final OrderService _orderListService = OrderService();
   bool _isLoading = true;
+  bool _isFetching = false; // New boolean to track fetching state
   String? _errorMessage;
   List<dynamic> _orders = [];
   final List<int> _selectedOrderIds = [];
@@ -85,12 +86,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return false;
   }
 
-  Future<void> _getOrders() async {
+    Future<void> _getOrders() async {
+    setState(() {
+      _isFetching = true; // Set fetching to true when starting to fetch orders
+    });
+
     String? token = await _secureStorage.read(key: 'access_token');
 
     if (token == null) {
       setState(() {
         _isLoading = false;
+        _isFetching = false; // Set fetching to false if no token is found
         _errorMessage = "No authentication token found.";
       });
       return;
@@ -115,11 +121,17 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       setState(() {
         _isLoading = false;
+        _isFetching = false; // Set fetching to false if an error occurs
         _errorMessage = "Failed to load orders.";
+      });
+    } finally {
+      setState(() {
+        _isFetching = false; // Ensure fetching is set to false when done
       });
     }
   }
 
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,241 +154,252 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         ],
       ),
-      body: _isLoading
-          ? const Center(child: Text('Loading...'))
-          : _errorMessage != null
-              ? Center(child: Text(_errorMessage!))
-              : _orders.isEmpty
-                  ? const Center(child: Text("No orders available.", style: TextStyle(fontSize: 16),))
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      child: Column(
-                        children: [
-                          Row(
+      body: _isFetching
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Fetching Orders...'),
+                ],
+              ),
+            )
+          : _isLoading
+              ? const Center(child: Text('Loading...'))
+              : _errorMessage != null
+                  ? Center(child: Text(_errorMessage!))
+                  : _orders.isEmpty
+                      ? const Center(child: Text("No orders available.", style: TextStyle(fontSize: 16),))
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          child: Column(
                             children: [
-                              Spacer(),
-                              TextButton(
-                                onPressed: () {
-                                  setState(() {
-                                    if (_selectedOrderIds.length ==
-                                        (_orders.length <= 20
-                                            ? _orders.length
-                                            : 20)) {
-                                      _selectedOrderIds.clear();
-                                    } else {
-                                      _selectedOrderIds.clear();
-                                      _selectedOrderIds.addAll(_orders
-                                          .sublist(
-                                              0,
-                                              _orders.length <= 20
-                                                  ? _orders.length
-                                                  : 20)
-                                          .map((order) => order['id']));
-                                    }
-                                  });
-                                },
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _selectedOrderIds.length ==
-                                              (_orders.length <= 20
-                                                  ? _orders.length
-                                                  : 20)
-                                          ? "Deselect All"
-                                          : (_orders.length <= 20
-                                              ? "Select All"
-                                              : "Select 20 Orders"),
-                                      style: const TextStyle(
-                                          fontSize: 16, color: Colors.black),
+                              Row(
+                                children: [
+                                  Spacer(),
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        if (_selectedOrderIds.length ==
+                                            (_orders.length <= 20
+                                                ? _orders.length
+                                                : 20)) {
+                                          _selectedOrderIds.clear();
+                                        } else {
+                                          _selectedOrderIds.clear();
+                                          _selectedOrderIds.addAll(_orders
+                                              .sublist(
+                                                  0,
+                                                  _orders.length <= 20
+                                                      ? _orders.length
+                                                      : 20)
+                                              .map((order) => order['id']));
+                                        }
+                                      });
+                                    },
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _selectedOrderIds.length ==
+                                                  (_orders.length <= 20
+                                                      ? _orders.length
+                                                      : 20)
+                                              ? "Deselect All"
+                                              : (_orders.length <= 20
+                                                  ? "Select All"
+                                                  : "Select 20 Orders"),
+                                          style: const TextStyle(
+                                              fontSize: 16, color: Colors.black),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          _selectedOrderIds.length ==
+                                                  (_orders.length <= 20
+                                                      ? _orders.length
+                                                      : 20)
+                                              ? Icons.check_box_rounded
+                                              : Icons.check_box_outline_blank,
+                                          color: Colors.black,
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      _selectedOrderIds.length ==
-                                              (_orders.length <= 20
-                                                  ? _orders.length
-                                                  : 20)
-                                          ? Icons.check_box_rounded
-                                          : Icons.check_box_outline_blank,
-                                      color: Colors.black,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: _orders.length,
-                              itemBuilder: (context, index) {
-                                final order = _orders[index];
-                                final customer = order['customer'];
-                                double totalPrice = order['order_details']
-                                    .map((item) =>
-                                        double.parse(item['total_price']))
-                                    .fold(0.0, (prev, amount) => prev + amount);
-                                return Container(
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 6),
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 2, horizontal: 16),
-                                        decoration: const BoxDecoration(
-                                          color: kPrimaryColor,
-                                          borderRadius: BorderRadius.vertical(
-                                              top: Radius.circular(16)),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              "Order No: ${order['id']}",
-                                              style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14),
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: _orders.length,
+                                  itemBuilder: (context, index) {
+                                    final order = _orders[index];
+                                    final customer = order['customer'];
+                                    double totalPrice = order['order_details']
+                                        .map((item) =>
+                                            double.parse(item['total_price']))
+                                        .fold(0.0, (prev, amount) => prev + amount);
+                                    return Container(
+                                      margin:
+                                          const EdgeInsets.symmetric(vertical: 6),
+                                      child: Column(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 2, horizontal: 16),
+                                            decoration: const BoxDecoration(
+                                              color: kPrimaryColor,
+                                              borderRadius: BorderRadius.vertical(
+                                                  top: Radius.circular(16)),
                                             ),
-                                            Checkbox(
-                                              value: _selectedOrderIds
-                                                  .contains(order['id']),
-                                              onChanged: (bool? selected) {
-                                                setState(() {
-                                                  if (selected == true) {
-                                                    _selectedOrderIds
-                                                        .add(order['id']);
-                                                  } else {
-                                                    _selectedOrderIds
-                                                        .remove(order['id']);
-                                                  }
-                                                });
-                                              },
-                                              activeColor: Colors.white,
-                                              checkColor: kPrimaryColor,
-                                            )
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16, vertical: 12),
-                                        decoration: const BoxDecoration(
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Color.fromARGB(
-                                                  255, 122, 122, 122),
-                                              blurRadius: 8,
-                                              offset: Offset(0, 4),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Text(
+                                                  "Order No: ${order['id']}",
+                                                  style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 14),
+                                                ),
+                                                Checkbox(
+                                                  value: _selectedOrderIds
+                                                      .contains(order['id']),
+                                                  onChanged: (bool? selected) {
+                                                    setState(() {
+                                                      if (selected == true) {
+                                                        _selectedOrderIds
+                                                            .add(order['id']);
+                                                      } else {
+                                                        _selectedOrderIds
+                                                            .remove(order['id']);
+                                                      }
+                                                    });
+                                                  },
+                                                  activeColor: Colors.white,
+                                                  checkColor: kPrimaryColor,
+                                                )
+                                              ],
                                             ),
-                                          ],
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.vertical(
-                                              bottom: Radius.circular(16)),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              "${customer['first_name']} ${customer['last_name']}",
-                                              style:
-                                                  const TextStyle(fontSize: 14),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 12),
+                                            decoration: const BoxDecoration(
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Color.fromARGB(
+                                                      255, 122, 122, 122),
+                                                  blurRadius: 8,
+                                                  offset: Offset(0, 4),
+                                                ),
+                                              ],
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.vertical(
+                                                  bottom: Radius.circular(16)),
                                             ),
-                                            Text("${customer['phone_number']}"),
-                                            Text(
-                                              "${customer['address']}",
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Divider(),
-                                            // Product List
-                                            ListView.builder(
-                                              shrinkWrap: true,
-                                              physics:
-                                                  const NeverScrollableScrollPhysics(),
-                                              itemCount:
-                                                  order['order_details'].length,
-                                              itemBuilder: (context, index) {
-                                                final item =
-                                                    order['order_details']
-                                                        [index];
-                                                return Row(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  "${customer['first_name']} ${customer['last_name']}",
+                                                  style:
+                                                      const TextStyle(fontSize: 14),
+                                                ),
+                                                Text("${customer['phone_number']}"),
+                                                Text(
+                                                  "${customer['address']}",
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                Divider(),
+                                                // Product List
+                                                ListView.builder(
+                                                  shrinkWrap: true,
+                                                  physics:
+                                                      const NeverScrollableScrollPhysics(),
+                                                  itemCount:
+                                                      order['order_details'].length,
+                                                  itemBuilder: (context, index) {
+                                                    final item =
+                                                        order['order_details']
+                                                            [index];
+                                                    return Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        Text(
+                                                         "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
+                                                          style: const TextStyle(
+                                                              fontSize: 14),
+                                                        ),
+                                                        Text(
+                                                          "₱${item['product']['price']}",
+                                                          style: const TextStyle(
+                                                              fontSize: 14),
+                                                        ),
+                                                      ],
+                                                    );
+                                                  },
+                                                ),
+                                                Divider(),
+                                                Row(
                                                   mainAxisAlignment:
                                                       MainAxisAlignment
                                                           .spaceBetween,
                                                   children: [
-                                                    Text(
-                                                      "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
-                                                      style: const TextStyle(
-                                                          fontSize: 14),
+                                                    const Text(
+                                                      "Total",
+                                                      style:
+                                                          TextStyle(fontSize: 15),
                                                     ),
                                                     Text(
-                                                      "₱${item['product']['price']}",
+                                                      "₱${totalPrice.toStringAsFixed(2)}",
                                                       style: const TextStyle(
-                                                          fontSize: 14),
+                                                        fontSize: 15,
+                                                      ),
                                                     ),
                                                   ],
-                                                );
-                                              },
-                                            ),
-                                            Divider(),
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                const Text(
-                                                  "Total",
-                                                  style:
-                                                      TextStyle(fontSize: 15),
-                                                ),
-                                                Text(
-                                                  "₱${totalPrice.toStringAsFixed(2)}",
-                                                  style: const TextStyle(
-                                                    fontSize: 15,
-                                                  ),
                                                 ),
                                               ],
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          if (_selectedOrderIds.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final selectedOrders = _orders.where((order) {
-                                    return _selectedOrderIds
-                                        .contains(order['id']);
-                                  }).toList();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => DeliveryList(
-                                        selectedOrders: _selectedOrderIds
-                                            .map((orderId) =>
-                                                _orders.firstWhere((order) =>
-                                                    order['id'] == orderId))
-                                            .toList()
-                                            .cast<Map<String, dynamic>>(),
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: const Text('Add to Queue'),
+                                    );
+                                  },
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
+                              if (_selectedOrderIds.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      final selectedOrders = _orders.where((order) {
+                                        return _selectedOrderIds
+                                            .contains(order['id']);
+                                      }).toList();
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => DeliveryList(
+                                            selectedOrders: _selectedOrderIds
+                                                .map((orderId) =>
+                                                    _orders.firstWhere((order) =>
+                                                        order['id'] == orderId))
+                                                .toList()
+                                                .cast<Map<String, dynamic>>(),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text('Add to Queue'),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
     );
   }
 }

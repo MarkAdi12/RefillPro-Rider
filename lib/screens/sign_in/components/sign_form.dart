@@ -18,6 +18,7 @@ class _SignFormState extends State<SignForm> {
   final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   bool _isLoading = false;
+  bool _obscureText = true;
   String? _errorMessage;
 
   @override
@@ -111,25 +112,34 @@ class _SignFormState extends State<SignForm> {
       child: Column(
         children: [
           TextFormField(
-            controller: _phoneController..text = "mark2",
+            controller: _phoneController,
             keyboardType: TextInputType.text,
             decoration: const InputDecoration(
-              labelText: "Phone",
+              labelText: "Username",
               labelStyle: TextStyle(color: kPrimaryColor),
-              hintText: "Enter your number",
+              hintText: "Enter your username",
               floatingLabelBehavior: FloatingLabelBehavior.always,
               suffixIcon: Icon(Icons.phone_iphone_rounded, size: 22),
             ),
           ),
           const SizedBox(height: 20),
           TextFormField(
-            controller: _passwordController..text = "Teentitans2",
-            decoration: const InputDecoration(
+            obscureText: _obscureText,
+            controller: _passwordController,
+            decoration: InputDecoration(
               labelText: "Password",
               labelStyle: TextStyle(color: kPrimaryColor),
               hintText: "Enter your password",
               floatingLabelBehavior: FloatingLabelBehavior.always,
-              suffixIcon: Icon(Icons.lock, size: 22),
+              suffixIcon: IconButton(
+                icon: Icon(
+                    _obscureText ? Icons.visibility_off : Icons.visibility),
+                onPressed: () {
+                  setState(() {
+                    _obscureText = !_obscureText;
+                  });
+                },
+              ),
             ),
           ),
           const SizedBox(height: 20),
