@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '/screens/sign_in/sign_in_screen.dart';
 import 'package:flutter/material.dart';
 import 'components/settings_menu.dart';
@@ -9,9 +11,14 @@ class MenuScreen extends StatelessWidget {
   void _logout(BuildContext context) async {
     const FlutterSecureStorage secureStorage = FlutterSecureStorage();
 
-    await secureStorage.delete(
-        key: 'access_token'); // Remove stored access token
-    await secureStorage.delete(key: 'refresh_token'); // Remove refresh token
+    // Remove stored access token and refresh token
+    await secureStorage.delete(key: 'access_token');
+    await secureStorage.delete(key: 'refresh_token');
+
+    // Clear delivery_list and pending_list from SharedPreferences
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('delivery_list', jsonEncode([])); // Clear delivery_list
+    await prefs.setString('pending_list', jsonEncode([])); // Clear pending_list
 
     // Redirect to login screen
     Navigator.pushReplacement(
@@ -38,10 +45,6 @@ class MenuScreen extends StatelessWidget {
               icon: Icons.logout_rounded,
               press: () {
                 _logout(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => SignInScreen()),
-                );
               },
             ),
           ],

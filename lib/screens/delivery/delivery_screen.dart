@@ -36,7 +36,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ModalRoute.of(context)!.addScopedWillPopCallback(() async {
-        _loadSavedOrders(); 
+        _loadSavedOrders();
         return true;
       });
     });
@@ -240,74 +240,91 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                         // View details button
                         Align(
                           alignment: Alignment.centerRight,
-                          child: ElevatedButton(
-                            onPressed: _isPressed
-                                ? null // Disable button if already pressed
-                                : () async {
-                                    setState(() {
-                                      _isPressed =
-                                          true; // Disable button and show loading indicator
-                                    });
-
-                                    final String? token = await _secureStorage
-                                        .read(key: 'access_token');
-                                    if (token == null) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              'Access token not found. Please log in again.'),
-                                        ),
-                                      );
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: ElevatedButton(
+                              onPressed: _isPressed
+                                  ? null
+                                  : () async {
                                       setState(() {
-                                        _isPressed = false; // Re-enable button
+                                        _isPressed = true;
                                       });
-                                      return;
-                                    }
 
-                                    int orderId = order['id'];
-                                    DateTime deliveryDateTime = DateTime.now();
-                                    int status = 3;
-                                    bool isUpdated = await OrderService()
-                                        .updateOrder(token, orderId,
-                                            deliveryDateTime, status);
+                                      final String? token = await _secureStorage
+                                          .read(key: 'access_token');
+                                      if (token == null) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Access token not found. Please log in again.'),
+                                          ),
+                                        );
+                                        setState(() {
+                                          _isPressed = false;
+                                        });
+                                        return;
+                                      }
 
-                                    if (isUpdated) {
-                                      await _updateOrderStatusInFirebase(
-                                          orderId.toString(), 3);
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              DeliveryFulfillment(order: order),
-                                        ),
+                                      int orderId = order['id'];
+                                      DateTime deliveryDateTime =
+                                          DateTime.now();
+                                      int newStatus = order['status'] == 2
+                                          ? 2
+                                          : 3; 
+
+                                      bool isUpdated =
+                                          await OrderService().updateOrder(
+                                        token,
+                                        orderId,
+                                        deliveryDateTime,
+                                        newStatus,
                                       );
-                                    } else {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              'Failed to update order. Please try again.'),
-                                        ),
-                                      );
-                                    }
 
-                                    setState(() {
-                                      _isPressed =
-                                          false; 
-                                    });
-                                  },
-                            child: _isPressed
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors
-                                          .white, 
-                                    ),
-                                  )
-                                : const Text('Accept Order'),
+                                      if (isUpdated) {
+                                        await _updateOrderStatusInFirebase(
+                                            orderId.toString(), newStatus);
+                                        setState(() {
+                                          order['status'] = newStatus;
+                                        });
+
+                                        if (newStatus == 3 || newStatus == 2) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  DeliveryFulfillment(
+                                                      order: order),
+                                            ),
+                                          );
+                                        }
+                                      } else {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Failed to update order. Please try again.'),
+                                          ),
+                                        );
+                                      }
+
+                                      setState(() {
+                                        _isPressed = false;
+                                      });
+                                    },
+                              child: _isPressed
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(order['status'] == 2
+                                      ? 'Reattempt Delivery'
+                                      : 'Accept Order'),
+                            ),
                           ),
                         ),
                       ],

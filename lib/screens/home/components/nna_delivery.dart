@@ -20,7 +20,7 @@ class _DeliveryListState extends State<DeliveryList> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
-  final String googleMapsApiKey = 'SECRET';
+  final String googleMapsApiKey = 'AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk';
   final double storeLat = 14.7168122;
   final double storeLon = 120.9553401;
   List<Map<String, dynamic>> _sortedOrders = [];
@@ -362,18 +362,27 @@ class _DeliveryListState extends State<DeliveryList> {
     );
   }
 
-  double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    const earthRadius = 6371;
-    double dLat = _degToRad(lat2 - lat1);
-    double dLon = _degToRad(lon2 - lon1);
+double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    // Earth's radius in kilometers
+    const double earthRadius = 6371;
+
+    // Convert latitude and longitude differences from degrees to radians
+    double dLat = _degToRad(lat2 - lat1); // Difference in latitude
+    double dLon = _degToRad(lon2 - lon1); // Difference in longitude
+
+    // Haversine formula to calculate the distance between two points on a sphere
     double a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_degToRad(lat1)) *
-            cos(_degToRad(lat2)) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
+               cos(_degToRad(lat1)) *
+               cos(_degToRad(lat2)) *
+               sin(dLon / 2) *
+               sin(dLon / 2);
+
+    // Calculate the angular distance in radians
     double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    // Return the distance in kilometers by multiplying the angular distance by Earth's radius
     return earthRadius * c;
-  }
+}
 
   double _degToRad(double deg) {
     return deg * (pi / 180);

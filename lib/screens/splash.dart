@@ -30,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen> {
         MaterialPageRoute(builder: (context) => InitScreen()),
       );
     } else {
-      await _logoutUser(); // Delete expired token
+      await _logoutUser(); // delete token
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => SignInScreen()),

@@ -86,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return false;
   }
 
-    Future<void> _getOrders() async {
+  Future<void> _getOrders() async {
     setState(() {
       _isFetching = true; // Set fetching to true when starting to fetch orders
     });
@@ -105,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       List<dynamic> items = await _orderListService.fetchOrders(token);
       List<dynamic> pendingOrders = items
-          .where((order) => order['status'] == 0 || order['status'] == 1)
+          .where((order) => order['status'] == 0 || order['status'] == 1 || order['status'] == 2)
           .toList();
 
       List<dynamic> filteredOrders = await _getFilteredPendingOrders();
@@ -131,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
- 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -147,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             onPressed: () {
-              _getOrders(); 
+              _getOrders();
             },
             icon: Icon(Icons.refresh),
             iconSize: 26,
@@ -170,7 +169,11 @@ class _HomeScreenState extends State<HomeScreen> {
               : _errorMessage != null
                   ? Center(child: Text(_errorMessage!))
                   : _orders.isEmpty
-                      ? const Center(child: Text("No orders available.", style: TextStyle(fontSize: 16),))
+                      ? const Center(
+                          child: Text(
+                          "No orders available.",
+                          style: TextStyle(fontSize: 16),
+                        ))
                       : Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: Column(
@@ -199,7 +202,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       });
                                     },
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.start,
                                       children: [
                                         Text(
                                           _selectedOrderIds.length ==
@@ -211,7 +215,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   ? "Select All"
                                                   : "Select 20 Orders"),
                                           style: const TextStyle(
-                                              fontSize: 16, color: Colors.black),
+                                              fontSize: 16,
+                                              color: Colors.black),
                                         ),
                                         const SizedBox(width: 8),
                                         Icon(
@@ -237,10 +242,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     double totalPrice = order['order_details']
                                         .map((item) =>
                                             double.parse(item['total_price']))
-                                        .fold(0.0, (prev, amount) => prev + amount);
+                                        .fold(0.0,
+                                            (prev, amount) => prev + amount);
                                     return Container(
-                                      margin:
-                                          const EdgeInsets.symmetric(vertical: 6),
+                                      margin: const EdgeInsets.symmetric(
+                                          vertical: 6),
                                       child: Column(
                                         children: [
                                           Container(
@@ -248,12 +254,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 vertical: 2, horizontal: 16),
                                             decoration: const BoxDecoration(
                                               color: kPrimaryColor,
-                                              borderRadius: BorderRadius.vertical(
-                                                  top: Radius.circular(16)),
+                                              borderRadius:
+                                                  BorderRadius.vertical(
+                                                      top: Radius.circular(16)),
                                             ),
                                             child: Row(
                                               mainAxisAlignment:
-                                                  MainAxisAlignment.spaceBetween,
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Text(
                                                   "Order No: ${order['id']}",
@@ -271,7 +279,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                             .add(order['id']);
                                                       } else {
                                                         _selectedOrderIds
-                                                            .remove(order['id']);
+                                                            .remove(
+                                                                order['id']);
                                                       }
                                                     });
                                                   },
@@ -294,8 +303,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                               ],
                                               color: Colors.white,
-                                              borderRadius: BorderRadius.vertical(
-                                                  bottom: Radius.circular(16)),
+                                              borderRadius:
+                                                  BorderRadius.vertical(
+                                                      bottom:
+                                                          Radius.circular(16)),
                                             ),
                                             child: Column(
                                               crossAxisAlignment:
@@ -303,14 +314,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                               children: [
                                                 Text(
                                                   "${customer['first_name']} ${customer['last_name']}",
-                                                  style:
-                                                      const TextStyle(fontSize: 14),
+                                                  style: const TextStyle(
+                                                      fontSize: 14),
                                                 ),
-                                                Text("${customer['phone_number']}"),
+                                                Text(
+                                                    "${customer['phone_number']}"),
                                                 Text(
                                                   "${customer['address']}",
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                                 Divider(),
                                                 // Product List
@@ -319,8 +332,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   physics:
                                                       const NeverScrollableScrollPhysics(),
                                                   itemCount:
-                                                      order['order_details'].length,
-                                                  itemBuilder: (context, index) {
+                                                      order['order_details']
+                                                          .length,
+                                                  itemBuilder:
+                                                      (context, index) {
                                                     final item =
                                                         order['order_details']
                                                             [index];
@@ -330,14 +345,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                                               .spaceBetween,
                                                       children: [
                                                         Text(
-                                                         "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
-                                                          style: const TextStyle(
-                                                              fontSize: 14),
+                                                          "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 14),
                                                         ),
                                                         Text(
                                                           "₱${item['product']['price']}",
-                                                          style: const TextStyle(
-                                                              fontSize: 14),
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 14),
                                                         ),
                                                       ],
                                                     );
@@ -351,8 +368,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   children: [
                                                     const Text(
                                                       "Total",
-                                                      style:
-                                                          TextStyle(fontSize: 15),
+                                                      style: TextStyle(
+                                                          fontSize: 15),
                                                     ),
                                                     Text(
                                                       "₱${totalPrice.toStringAsFixed(2)}",
@@ -375,19 +392,70 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: ElevatedButton(
-                                    onPressed: () {
-                                      final selectedOrders = _orders.where((order) {
+                                    onPressed: () async {
+                                      // Check if "delivery_list" has data
+                                      SharedPreferences prefs =
+                                          await SharedPreferences.getInstance();
+                                      String? deliveryOrdersJson =
+                                          prefs.getString('delivery_list');
+                                      List<dynamic> deliveryOrders =
+                                          deliveryOrdersJson != null
+                                              ? jsonDecode(deliveryOrdersJson)
+                                              : [];
+
+                                      if (deliveryOrders.isNotEmpty) {
+                                        // Show a confirmation dialog
+                                        bool confirmReplace = await showDialog(
+                                          context: context,
+                                          builder: (context) {
+                                            return AlertDialog(
+                                              title: const Text(
+                                                  'Replace Delivery List?', style: TextStyle(fontSize: 18),),
+                                              content: const Text(
+                                                  'Adding new orders will replace the current delivery list. Do you want to continue?'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(context,
+                                                        false); // Return false (do not replace)
+                                                  },
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(context,
+                                                        true); // Return true (replace)
+                                                  },
+                                                  child: const Text('Replace'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+
+                                        // If the user cancels, do nothing
+                                        if (confirmReplace != true) {
+                                          return;
+                                        }
+                                      }
+
+                                      final selectedOrders =
+                                          _orders.where((order) {
                                         return _selectedOrderIds
                                             .contains(order['id']);
                                       }).toList();
+
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
                                           builder: (context) => DeliveryList(
                                             selectedOrders: _selectedOrderIds
                                                 .map((orderId) =>
-                                                    _orders.firstWhere((order) =>
-                                                        order['id'] == orderId))
+                                                    _orders.firstWhere(
+                                                      (order) =>
+                                                          order['id'] ==
+                                                          orderId,
+                                                    ))
                                                 .toList()
                                                 .cast<Map<String, dynamic>>(),
                                           ),

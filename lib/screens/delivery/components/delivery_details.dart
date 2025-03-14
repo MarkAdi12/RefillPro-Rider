@@ -1,5 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:rider_and_clerk_application/screens/delivery/delivery_screen.dart';
+import 'package:rider_and_clerk_application/screens/init_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../constants.dart';
 import '../../../services/order_management_service.dart';
@@ -33,6 +38,136 @@ class _DraggableSheetState extends State<DraggableSheet> {
       'status': status,
     });
     print('Order $orderId status updated to $status');
+  }
+
+  Future<void> _updateOrderStatusInDeliveryList(int orderId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // Load current delivery_list
+    String? deliveryOrdersJson = prefs.getString('delivery_list');
+    List<dynamic> deliveryOrders =
+        deliveryOrdersJson != null ? jsonDecode(deliveryOrdersJson) : [];
+
+    // Find the order and update its status
+    for (var order in deliveryOrders) {
+      if (order['id'] == orderId) {
+        order['status'] = 2; // Set status to 2
+        break;
+      }
+    }
+
+    // Save the updated delivery_list back to SharedPreferences
+    await prefs.setString('delivery_list', jsonEncode(deliveryOrders));
+
+    print('Order $orderId status updated to 2 in delivery_list');
+  }
+
+  void _showFailedDeliveryDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Failed Delivery',
+            style: TextStyle(fontSize: 18),
+          ),
+          content: const Text('What would you like to do?'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final String? token =
+                    await widget.secureStorage.read(key: 'access_token');
+
+                if (token == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text('Access token not found. Please log in again.'),
+                    ),
+                  );
+                  return;
+                }
+
+                DateTime deliveryDateTime = DateTime.now();
+                int status = 2;
+                int orderId = widget.order['id'];
+
+                bool isUpdated = await OrderService()
+                    .updateOrder(token, orderId, deliveryDateTime, status);
+
+                if (isUpdated) {
+                  print("Order ID: $orderId marked as failed.");
+                  await _updateOrderStatusInDeliveryList(orderId);
+
+                  // ✅ Pop the current screen first, then navigate with refresh
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => InitScreen(initialIndex: 1),
+                      ),
+                    ).then((_) {
+                      // Force screen refresh after returning
+                      setState(() {});
+                    });
+                  }
+                } else {
+                  print("Failed to update order for Order ID: $orderId");
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text('Failed to update order. Please try again.'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Reattempt Later'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final String? token =
+                    await widget.secureStorage.read(key: 'access_token');
+                if (token == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text('Access token not found. Please log in again.'),
+                    ),
+                  );
+                  return;
+                }
+
+                DateTime deliveryDateTime = DateTime.now();
+                int status = 7;
+                int orderId = widget.order['id'];
+
+                bool isUpdated = await OrderService()
+                    .updateOrder(token, orderId, deliveryDateTime, status);
+
+                if (isUpdated) {
+                  print("Order ID: $orderId marked as failed.");
+                  await _updateOrderStatusInFirebase(
+                      orderId.toString(), status);
+                  widget.onCompleteDelivery(orderId);
+                } else {
+                  print("Failed to update order for Order ID: $orderId");
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text('Failed to update order. Please try again.'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Mark as Failed',
+                  style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -297,50 +432,7 @@ class _DraggableSheetState extends State<DraggableSheet> {
                         onPressed: _isLoading
                             ? null
                             : () async {
-                                final String? token = await widget.secureStorage
-                                    .read(key: 'access_token');
-                                if (token == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Access token not found. Please log in again.'),
-                                    ),
-                                  );
-                                  setState(() {
-                                    _isLoading = false;
-                                  });
-                                  return;
-                                }
-
-                                DateTime deliveryDateTime = DateTime.now();
-                                int status = 6;
-                                int orderId = widget.order['id'];
-                                bool isUpdated = await OrderService()
-                                    .updateOrder(token, orderId,
-                                        deliveryDateTime, status);
-
-                                if (isUpdated) {
-                                  print(
-                                      "Order ID: $orderId successfully updated to status $status.");
-                                  await _updateOrderStatusInFirebase(
-                                      orderId.toString(), 6);
-                                  widget.onCompleteDelivery(orderId);
-                                } else {
-                                  print(
-                                      "Failed to update order for Order ID: $orderId");
-                                  await _updateOrderStatusInFirebase(
-                                      orderId.toString(), 6);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Failed to update order. Please try again.'),
-                                    ),
-                                  );
-                                }
-
-                                setState(() {
-                                  _isLoading = false;
-                                });
+                                _showFailedDeliveryDialog(context);
                               },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
