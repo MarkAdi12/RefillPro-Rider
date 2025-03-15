@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:rider_and_clerk_application/screens/delivery/delivery_screen.dart';
@@ -32,6 +31,7 @@ class DraggableSheet extends StatefulWidget {
 class _DraggableSheetState extends State<DraggableSheet> {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
   bool _isLoading = false;
+  bool _isProcessing = false;
 
   Future<void> _updateOrderStatusInFirebase(String orderId, int status) async {
     await _database.child('orders/$orderId').set({
@@ -42,23 +42,18 @@ class _DraggableSheetState extends State<DraggableSheet> {
 
   Future<void> _updateOrderStatusInDeliveryList(int orderId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Load current delivery_list
     String? deliveryOrdersJson = prefs.getString('delivery_list');
     List<dynamic> deliveryOrders =
         deliveryOrdersJson != null ? jsonDecode(deliveryOrdersJson) : [];
 
-    // Find the order and update its status
     for (var order in deliveryOrders) {
       if (order['id'] == orderId) {
-        order['status'] = 2; // Set status to 2
+        order['status'] = 2;
         break;
       }
     }
 
-    // Save the updated delivery_list back to SharedPreferences
     await prefs.setString('delivery_list', jsonEncode(deliveryOrders));
-
     print('Order $orderId status updated to 2 in delivery_list');
   }
 
@@ -74,100 +69,129 @@ class _DraggableSheetState extends State<DraggableSheet> {
           content: const Text('What would you like to do?'),
           actions: [
             TextButton(
-              onPressed: () async {
-                final String? token =
-                    await widget.secureStorage.read(key: 'access_token');
-
-                if (token == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('Access token not found. Please log in again.'),
-                    ),
-                  );
-                  return;
-                }
-
-                DateTime deliveryDateTime = DateTime.now();
-                int status = 2;
-                int orderId = widget.order['id'];
-
-                bool isUpdated = await OrderService()
-                    .updateOrder(token, orderId, deliveryDateTime, status);
-
-                if (isUpdated) {
-                  print("Order ID: $orderId marked as failed.");
-                  await _updateOrderStatusInDeliveryList(orderId);
-
-                  // ✅ Pop the current screen first, then navigate with refresh
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => InitScreen(initialIndex: 1),
-                      ),
-                    ).then((_) {
-                      // Force screen refresh after returning
-                      setState(() {});
-                    });
-                  }
-                } else {
-                  print("Failed to update order for Order ID: $orderId");
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('Failed to update order. Please try again.'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Reattempt Later'),
+              onPressed: _isProcessing ? null : () => _handleReattempt(context),
+              child: _isProcessing
+                  ? const CircularProgressIndicator(
+                      color: Colors.blue,
+                      strokeWidth: 2.0,
+                    )
+                  : const Text('Reattempt Later'),
             ),
             TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                final String? token =
-                    await widget.secureStorage.read(key: 'access_token');
-                if (token == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('Access token not found. Please log in again.'),
+              onPressed:
+                  _isProcessing ? null : () => _handleMarkAsFailed(context),
+              child: _isProcessing
+                  ? const CircularProgressIndicator(
+                      color: Colors.red,
+                      strokeWidth: 2.0,
+                    )
+                  : const Text(
+                      'Mark as Failed',
+                      style: TextStyle(color: Colors.red),
                     ),
-                  );
-                  return;
-                }
-
-                DateTime deliveryDateTime = DateTime.now();
-                int status = 7;
-                int orderId = widget.order['id'];
-
-                bool isUpdated = await OrderService()
-                    .updateOrder(token, orderId, deliveryDateTime, status);
-
-                if (isUpdated) {
-                  print("Order ID: $orderId marked as failed.");
-                  await _updateOrderStatusInFirebase(
-                      orderId.toString(), status);
-                  widget.onCompleteDelivery(orderId);
-                } else {
-                  print("Failed to update order for Order ID: $orderId");
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('Failed to update order. Please try again.'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Mark as Failed',
-                  style: TextStyle(color: Colors.red)),
             ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _handleReattempt(BuildContext context) async {
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      final String? token = await widget.secureStorage.read(key: 'access_token');
+
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Access token not found. Please log in again.'),
+          ),
+        );
+        return;
+      }
+
+      DateTime deliveryDateTime = DateTime.now();
+      int status = 2;
+      int orderId = widget.order['id'];
+
+      bool isUpdated = await OrderService()
+          .updateOrder(token, orderId, deliveryDateTime, status);
+
+      if (isUpdated) {
+        print("Order ID: $orderId marked for reattempt.");
+        await _updateOrderStatusInDeliveryList(orderId);
+        await _updateOrderStatusInFirebase(orderId.toString(), status);
+        if (context.mounted) {
+          Navigator.pop(context);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => InitScreen(initialIndex: 1),
+            ),
+          ).then((_) {
+            setState(() {});
+          });
+        }
+      } else {
+        print("Failed to update order for Order ID: $orderId");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update order. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
+  Future<void> _handleMarkAsFailed(BuildContext context) async {
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      Navigator.pop(context);
+      final String? token = await widget.secureStorage.read(key: 'access_token');
+
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Access token not found. Please log in again.'),
+          ),
+        );
+        return;
+      }
+
+      DateTime deliveryDateTime = DateTime.now();
+      int status = 6;
+      int orderId = widget.order['id'];
+
+      bool isUpdated = await OrderService()
+          .updateOrder(token, orderId, deliveryDateTime, status);
+
+      if (isUpdated) {
+        print("Order ID: $orderId marked as failed.");
+        await _updateOrderStatusInFirebase(orderId.toString(), status);
+        widget.onCompleteDelivery(orderId);
+      } else {
+        print("Failed to update order for Order ID: $orderId");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update order. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
   }
 
   @override
@@ -324,99 +348,92 @@ class _DraggableSheetState extends State<DraggableSheet> {
                   children: [
                     Flexible(
                       child: ElevatedButton(
-                        onPressed: _isLoading
+                        onPressed: _isProcessing || _isLoading
                             ? null
                             : () async {
                                 setState(() {
                                   _isLoading = true;
                                 });
 
-                                final String? token = await widget.secureStorage
-                                    .read(key: 'access_token');
-                                if (token == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Access token not found. Please log in again.'),
-                                    ),
-                                  );
-                                  setState(() {
-                                    _isLoading = false;
-                                  });
-                                  return;
-                                }
-
-                                int orderId = widget.order['id'];
-
-                                // Convert amount safely
-                                double? orderAmount = double.tryParse(widget
-                                        .order['order_details']?[0]
-                                            ?['total_price']
-                                        ?.toString() ??
-                                    "0.0");
-
-                                if (orderAmount == null || orderAmount <= 0) {
-                                  print(
-                                      "Error: Invalid order amount for Order ID: $orderId");
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Invalid order amount.')),
-                                  );
-                                  setState(() {
-                                    _isLoading = false;
-                                  });
-                                  return;
-                                }
-
-                                DateTime deliveryDateTime = DateTime.now();
-                                int status = 4;
-
-                                final paymentData = await PaymentService()
-                                    .retrievePayment(token, orderId);
-
-                                if (paymentData == null) {
-                                  // If no payment exists, create a cash payment.
-                                  await PaymentService().createPayment(
-                                    token,
-                                    orderId,
-                                    0, // Cash payment method
-                                    "", // No reference code for cash
-                                    orderAmount.toStringAsFixed(
-                                        2), // Convert double to formatted string
-                                    "Auto-generated cash payment",
-                                    // Payment status (1 = completed)
-                                  );
-                                  print(
-                                      "Auto-created cash payment for Order ID: $orderId, Amount: $orderAmount");
-                                } else {
-                                  print(
-                                      "Payment already exists for Order ID: $orderId, skipping creation.");
-                                }
-                                print(
-                                    "Updating order status for Order ID: $orderId...");
-                                bool isUpdated = await OrderService()
-                                    .updateOrder(token, orderId,
-                                        deliveryDateTime, status);
-
-                                if (isUpdated) {
-                                  print(
-                                      "Order ID: $orderId successfully updated to status $status.");
-                                  await _updateOrderStatusInFirebase(
-                                      orderId.toString(), 4);
-                                  widget.onCompleteDelivery(orderId);
-                                } else {
-                                  print(
-                                      "Failed to update order for Order ID: $orderId");
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
+                                try {
+                                  final String? token = await widget.secureStorage
+                                      .read(key: 'access_token');
+                                  if (token == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
                                         content: Text(
-                                            'Failed to update order. Please try again.')),
-                                  );
-                                }
+                                            'Access token not found. Please log in again.'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  int orderId = widget.order['id'];
+                                  double? orderAmount = double.tryParse(widget
+                                          .order['order_details']?[0]
+                                              ?['total_price']
+                                          ?.toString() ??
+                                      "0.0");
 
-                                setState(() {
-                                  _isLoading = false;
-                                });
+                                  if (orderAmount == null || orderAmount <= 0) {
+                                    print(
+                                        "Error: Invalid order amount for Order ID: $orderId");
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('Invalid order amount.')),
+                                    );
+                                    return;
+                                  }
+
+                                  DateTime deliveryDateTime = DateTime.now();
+                                  int status = 4;
+
+                                  final paymentData = await PaymentService()
+                                      .retrievePayment(token, orderId);
+
+                                  if (paymentData == null) {
+                                    // If no payment exists, create a cash payment.
+                                    await PaymentService().createPayment(
+                                      token,
+                                      orderId,
+                                      0, // Cash payment method
+                                      "", // No reference code for cash
+                                      orderAmount.toStringAsFixed(
+                                          2), // Convert double to formatted string
+                                      "Auto-generated cash payment",
+                                      // Payment status (1 = completed)
+                                    );
+                                    print(
+                                        "Auto-created cash payment for Order ID: $orderId, Amount: $orderAmount");
+                                  } else {
+                                    print(
+                                        "Payment already exists for Order ID: $orderId, skipping creation.");
+                                  }
+                                  print(
+                                      "Updating order status for Order ID: $orderId...");
+                                  bool isUpdated = await OrderService()
+                                      .updateOrder(token, orderId,
+                                          deliveryDateTime, status);
+
+                                  if (isUpdated) {
+                                    print(
+                                        "Order ID: $orderId successfully updated to status $status.");
+                                    await _updateOrderStatusInFirebase(
+                                        orderId.toString(), 4);
+                                    widget.onCompleteDelivery(orderId);
+                                  } else {
+                                    print(
+                                        "Failed to update order for Order ID: $orderId");
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Failed to update order. Please try again.')),
+                                    );
+                                  }
+                                } finally {
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                }
                               },
                         child: _isLoading
                             ? CircularProgressIndicator(
@@ -429,7 +446,7 @@ class _DraggableSheetState extends State<DraggableSheet> {
                     SizedBox(width: 12),
                     Flexible(
                       child: ElevatedButton(
-                        onPressed: _isLoading
+                        onPressed: _isProcessing || _isLoading
                             ? null
                             : () async {
                                 _showFailedDeliveryDialog(context);
@@ -437,7 +454,12 @@ class _DraggableSheetState extends State<DraggableSheet> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
                         ),
-                        child: const Text('Failed Delivery'),
+                        child: _isProcessing
+                            ? CircularProgressIndicator(
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              )
+                            : const Text('Failed Delivery'),
                       ),
                     ),
                   ],

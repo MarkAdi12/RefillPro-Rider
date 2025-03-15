@@ -20,7 +20,7 @@ class _DeliveryListState extends State<DeliveryList> {
   late GoogleMapController _mapController;
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
-  final String googleMapsApiKey = 'AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk';
+  final String googleMapsApiKey = 'SECRET'; // AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk
   final double storeLat = 14.7168122;
   final double storeLon = 120.9553401;
   List<Map<String, dynamic>> _sortedOrders = [];

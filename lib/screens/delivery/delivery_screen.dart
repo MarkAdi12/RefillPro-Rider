@@ -66,6 +66,31 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     });
   }
 
+  Future<void> _removeCancelledOrder(int orderId) async {
+    // Remove from _sortedOrders (delivery_list)
+    List<Map<String, dynamic>> updatedDeliveryOrders = List.from(_sortedOrders);
+    updatedDeliveryOrders.removeWhere((order) => order['id'] == orderId);
+
+    // Update SharedPreferences for delivery_list
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('delivery_list', jsonEncode(updatedDeliveryOrders));
+
+    // Remove from pending_list
+    String? pendingListJson = prefs.getString('pending_list');
+    if (pendingListJson != null) {
+      List<dynamic> pendingOrders = jsonDecode(pendingListJson);
+      pendingOrders.removeWhere((order) => order['id'] == orderId);
+
+      // Update SharedPreferences for pending_list
+      await prefs.setString('pending_list', jsonEncode(pendingOrders));
+    }
+
+    // Update the UI list
+    setState(() {
+      _sortedOrders = updatedDeliveryOrders;
+    });
+  }
+
   Future<void> _removeAllOrders() async {
     // Clear the list
     List<Map<String, dynamic>> updatedOrders = [];
@@ -240,25 +265,67 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                         // View details button
                         Align(
                           alignment: Alignment.centerRight,
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: ElevatedButton(
-                              onPressed: _isPressed
-                                  ? null
-                                  : () async {
-                                      setState(() {
-                                        _isPressed = true;
-                                      });
+                          child: ElevatedButton(
+                            onPressed: _isPressed
+                                ? null
+                                : () async {
+                                    setState(() {
+                                      _isPressed = true;
+                                    });
 
-                                      final String? token = await _secureStorage
-                                          .read(key: 'access_token');
-                                      if (token == null) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                                'Access token not found. Please log in again.'),
-                                          ),
+                                    final String? token = await _secureStorage
+                                        .read(key: 'access_token');
+                                    if (token == null) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Access token not found. Please log in again.'),
+                                        ),
+                                      );
+                                      setState(() {
+                                        _isPressed = false;
+                                      });
+                                      return;
+                                    }
+
+                                    int orderId = order['id'];
+                                    DateTime deliveryDateTime = DateTime.now();
+                                  int newStatus = order['status'] == 2 ? 3 : 3;
+
+                                    // Fetch the order details
+                                    try {
+                                      final orders = await OrderService()
+                                          .fetchOrders(token);
+                                      final orderDetails = orders.firstWhere(
+                                          (o) => o['id'] == orderId,
+                                          orElse: () => null);
+
+                                      if (orderDetails != null &&
+                                          orderDetails['status'] > 4) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                              title: Text(
+                                                'Order Cancelled',
+                                                style: TextStyle(fontSize: 18),
+                                              ),
+                                              content: Text(
+                                                  'The order has been cancelled, \nPlease Proceed to the next order',
+                                                style: TextStyle(fontSize: 16),),
+                                              actions: <Widget>[
+                                                TextButton(
+                                                  child: Text('OK'),
+                                                  onPressed: () {
+                                                    Navigator.of(context).pop();
+                                                    _removeCancelledOrder(
+                                                        orderId);
+                                                  },
+                                                ),
+                                              ],
+                                            );
+                                          },
                                         );
                                         setState(() {
                                           _isPressed = false;
@@ -266,13 +333,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                         return;
                                       }
 
-                                      int orderId = order['id'];
-                                      DateTime deliveryDateTime =
-                                          DateTime.now();
-                                      int newStatus = order['status'] == 2
-                                          ? 2
-                                          : 3; 
-
+                                      // Proceed with updating the order status
                                       bool isUpdated =
                                           await OrderService().updateOrder(
                                         token,
@@ -307,24 +368,32 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                           ),
                                         );
                                       }
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Error fetching order details: $e'),
+                                        ),
+                                      );
+                                    }
 
-                                      setState(() {
-                                        _isPressed = false;
-                                      });
-                                    },
-                              child: _isPressed
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Text(order['status'] == 2
-                                      ? 'Reattempt Delivery'
-                                      : 'Accept Order'),
-                            ),
+                                    setState(() {
+                                      _isPressed = false;
+                                    });
+                                  },
+                            child: _isPressed
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(order['status'] == 2
+                                    ? 'Reattempt Delivery'
+                                    : 'Accept Order'),
                           ),
                         ),
                       ],
