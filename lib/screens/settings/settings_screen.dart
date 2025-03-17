@@ -4,9 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '/screens/sign_in/sign_in_screen.dart';
 import 'package:flutter/material.dart';
 import 'components/settings_menu.dart';
+import '../../../services/auth_service.dart';
 
 class MenuScreen extends StatelessWidget {
-  const MenuScreen({super.key});
+  final AuthService _authService = AuthService();
+  MenuScreen({super.key});
 
   void _logout(BuildContext context) async {
     const FlutterSecureStorage secureStorage = FlutterSecureStorage();
@@ -17,10 +19,12 @@ class MenuScreen extends StatelessWidget {
 
     // Clear delivery_list and pending_list from SharedPreferences
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('delivery_list', jsonEncode([])); // Clear delivery_list
+    await prefs.setString(
+        'delivery_list', jsonEncode([])); // Clear delivery_list
     await prefs.setString('pending_list', jsonEncode([])); // Clear pending_list
 
     // Redirect to login screen
+    _authService.cancelLogoutTimer();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => SignInScreen()),

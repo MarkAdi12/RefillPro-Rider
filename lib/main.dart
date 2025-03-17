@@ -23,7 +23,7 @@ class MainApp extends StatelessWidget {
     return  MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme(context),
-      home: SplashScreen()
+      home: SignInScreen()
       );
   }
 }

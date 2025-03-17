@@ -85,6 +85,8 @@ class _SignFormState extends State<SignForm> {
       }
 
       final userData = await _authService.getUser(accessToken);
+
+      _authService.startLogoutTimer(accessToken, context);
       if (userData != null) {
         Navigator.pushReplacement(
           context,

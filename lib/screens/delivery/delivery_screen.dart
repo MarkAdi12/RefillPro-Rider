@@ -238,7 +238,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                   style: const TextStyle(fontSize: 14),
                                 ),
                                 Text(
-                                  "₱${item['product']['price']}",
+                                  "₱${item['total_price']}",
                                   style: const TextStyle(fontSize: 14),
                                 ),
                               ],

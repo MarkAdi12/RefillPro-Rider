@@ -11,7 +11,11 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  final FlutterSecureStorage _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+  );
 
   @override
   void initState() {
@@ -20,21 +24,36 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateAfterSplash() async {
-    await Future.delayed(Duration(seconds: 3));
+    try {
+      await Future.delayed(Duration(seconds: 3));
 
-    String? accessToken = await _secureStorage.read(key: 'access_token');
+      String? accessToken;
+      try {
+        accessToken = await _secureStorage.read(key: 'access_token');
+      } catch (e) {
+        print("🚨 Secure Storage Read Error: $e");
+      }
 
-    if (accessToken != null && !_isTokenExpired(accessToken)) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => InitScreen()),
-      );
-    } else {
-      await _logoutUser(); // delete token
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => SignInScreen()),
-      );
+      print("📌 Token Retrieved: $accessToken");
+
+      if (accessToken != null && !_isTokenExpired(accessToken)) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => InitScreen()),
+          );
+        }
+      } else {
+        await _logoutUser();
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => SignInScreen()),
+          );
+        }
+      }
+    } catch (e) {
+      print("🚨 SplashScreen Error: $e");
     }
   }
 

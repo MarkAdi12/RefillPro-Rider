@@ -10,7 +10,6 @@ class SignInScreen extends StatelessWidget {
         title: const Text('Sign In'),
         centerTitle: true,
         automaticallyImplyLeading: false,
-        
       ),
       body: SafeArea(
         child: SizedBox(

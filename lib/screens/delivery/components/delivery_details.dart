@@ -102,7 +102,8 @@ class _DraggableSheetState extends State<DraggableSheet> {
     });
 
     try {
-      final String? token = await widget.secureStorage.read(key: 'access_token');
+      final String? token =
+          await widget.secureStorage.read(key: 'access_token');
 
       if (token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -157,7 +158,8 @@ class _DraggableSheetState extends State<DraggableSheet> {
 
     try {
       Navigator.pop(context);
-      final String? token = await widget.secureStorage.read(key: 'access_token');
+      final String? token =
+          await widget.secureStorage.read(key: 'access_token');
 
       if (token == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -307,15 +309,6 @@ class _DraggableSheetState extends State<DraggableSheet> {
                           }).toList() ??
                           [Text("No items in order")],
                 ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Subtotal:',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('₱${widget.order['order_details'][0]['total_price']}'),
-                  ],
-                ),
                 SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -323,7 +316,9 @@ class _DraggableSheetState extends State<DraggableSheet> {
                     Text('Total Price: ',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('₱${widget.order['order_details'][0]['total_price']}'),
+                    Text(
+                      "₱${widget.order['order_details'].map((item) => double.parse(item['total_price'])).fold(0.0, (prev, amount) => prev + amount).toStringAsFixed(2)}",
+                    ),
                   ],
                 ),
                 if (widget.paymentStatus.isNotEmpty)
@@ -356,7 +351,8 @@ class _DraggableSheetState extends State<DraggableSheet> {
                                 });
 
                                 try {
-                                  final String? token = await widget.secureStorage
+                                  final String? token = await widget
+                                      .secureStorage
                                       .read(key: 'access_token');
                                   if (token == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -379,7 +375,8 @@ class _DraggableSheetState extends State<DraggableSheet> {
                                         "Error: Invalid order amount for Order ID: $orderId");
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                          content: Text('Invalid order amount.')),
+                                          content:
+                                              Text('Invalid order amount.')),
                                     );
                                     return;
                                   }

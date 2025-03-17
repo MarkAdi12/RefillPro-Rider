@@ -105,7 +105,10 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       List<dynamic> items = await _orderListService.fetchOrders(token);
       List<dynamic> pendingOrders = items
-          .where((order) => order['status'] == 0 || order['status'] == 1 || order['status'] == 2)
+          .where((order) =>
+              order['status'] == 0 ||
+              order['status'] == 1 ||
+              order['status'] == 2)
           .toList();
 
       List<dynamic> filteredOrders = await _getFilteredPendingOrders();
@@ -351,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                                   fontSize: 14),
                                                         ),
                                                         Text(
-                                                          "₱${item['product']['price']}",
+                                                          "₱${item['total_price']}", // ✅ Use stored price from order details
                                                           style:
                                                               const TextStyle(
                                                                   fontSize: 14),
@@ -410,7 +413,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           builder: (context) {
                                             return AlertDialog(
                                               title: const Text(
-                                                  'Replace Delivery List?', style: TextStyle(fontSize: 18),),
+                                                'Replace Delivery List?',
+                                                style: TextStyle(fontSize: 18),
+                                              ),
                                               content: const Text(
                                                   'Adding new orders will replace the current delivery list. Do you want to continue?'),
                                               actions: [
