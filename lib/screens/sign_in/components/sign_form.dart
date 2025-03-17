@@ -62,10 +62,10 @@ class _SignFormState extends State<SignForm> {
 
       String? fcmToken = await _secureStorage.read(key: 'fcm_token');
       if (fcmToken == null || fcmToken.isEmpty) {
-        print("fcm empty");
+        print("⚠️ FCM token is empty");
         return;
       } else {
-        print("FCM token found: $fcmToken");
+        print("✅ FCM token found: $fcmToken");
       }
 
       final updatedData = {
@@ -76,18 +76,28 @@ class _SignFormState extends State<SignForm> {
       try {
         final response = await _authService.editUser(accessToken, updatedData);
         if (response != null) {
-          print('FCM token saved');
+          print('✅ FCM token saved');
         } else {
-          print('FCM token failed to save');
+          print('⚠️ FCM token failed to save');
         }
       } catch (e) {
-        print('Error updating FCM token: $e');
+        print('❌ Error updating FCM token: $e');
       }
 
+      // ✅ Retrieve user data after login
       final userData = await _authService.getUser(accessToken);
 
-      _authService.startLogoutTimer(accessToken, context);
       if (userData != null) {
+        int riderId = userData['id']; // Extract the rider ID
+        await _secureStorage.write(
+            key: 'rider_id',
+            value: riderId.toString()); // Store rider ID securely
+        print("🆔 Rider ID stored: $riderId");
+
+        // Start logout timer
+        _authService.startLogoutTimer(accessToken, context);
+
+        // Navigate to home screen
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => InitScreen()),

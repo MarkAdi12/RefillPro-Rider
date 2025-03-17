@@ -22,11 +22,27 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
 
-  Future<void> _updateOrderStatusInFirebase(String orderId, int status) async {
-    await _database.child('orders/$orderId').set({
+  Future<void> _updateOrderStatusInFirebase(String orderId, int status,
+      {int? riderId, double? riderLat, double? riderLong}) async {
+    Map<String, dynamic> updates = {
       'status': status,
-    });
-    print('Order $orderId status updated to $status');
+    };
+
+    if (status == 3 &&
+        riderId != null &&
+        riderLat != null &&
+        riderLong != null) {
+      updates.addAll({
+        'riderId': riderId,
+        'riderLat': riderLat,
+        'riderLong': riderLong,
+      });
+    }
+
+    await _database.child('orders/$orderId').update(updates);
+
+    print(
+        'Order $orderId updated - Status: $status, Rider ID: $riderId, Location: ($riderLat, $riderLong)');
   }
 
   @override
@@ -291,7 +307,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
 
                                     int orderId = order['id'];
                                     DateTime deliveryDateTime = DateTime.now();
-                                  int newStatus = order['status'] == 2 ? 3 : 3;
+                                    int newStatus =
+                                        order['status'] == 2 ? 3 : 3;
 
                                     // Fetch the order details
                                     try {
@@ -312,8 +329,9 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                                 style: TextStyle(fontSize: 18),
                                               ),
                                               content: Text(
-                                                  'The order has been cancelled, \nPlease Proceed to the next order',
-                                                style: TextStyle(fontSize: 16),),
+                                                'The order has been cancelled, \nPlease Proceed to the next order',
+                                                style: TextStyle(fontSize: 16),
+                                              ),
                                               actions: <Widget>[
                                                 TextButton(
                                                   child: Text('OK'),

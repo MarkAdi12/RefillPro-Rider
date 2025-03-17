@@ -41,6 +41,7 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
   bool _isLoadingPayment = false;
   String _paymentStatusText = '';
   final FirebaseDatabase _database = FirebaseDatabase.instance;
+  String? _orderID = '';
 
   @override
   void initState() {
@@ -49,6 +50,7 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
         double.tryParse(widget.order['customer']['lat'] ?? '0') ?? 0.0;
     customerLongitude =
         double.tryParse(widget.order['customer']['long'] ?? '0') ?? 0.0;
+    _orderID = widget.order['id'].toString();
     _getCurrentLocation();
     _locationTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       _getCurrentLocation();
@@ -61,6 +63,50 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
     _locationTimer?.cancel();
     super.dispose();
     _fetchPayment();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    LatLng? location = await LocationService.getCurrentLocation(context);
+    if (location != null) {
+      setState(() {
+        currentLocation = location;
+        _addMarkers();
+
+        if (!_cameraMoved && _mapController != null) {
+          _mapController.animateCamera(
+            CameraUpdate.newLatLngZoom(location, 16),
+          );
+          _cameraMoved = true;
+        }
+
+        if (currentLocation != null &&
+            customerLatitude != 0.0 &&
+            customerLongitude != 0.0 &&
+            !_routeFetched) {
+          _getRoute(
+              currentLocation!, LatLng(customerLatitude, customerLongitude));
+          _routeFetched = true;
+        }
+      });
+      _updateLocationInDatabase(_orderID!, location);
+    }
+  }
+
+  Future<void> _updateLocationInDatabase(
+      String orderId, LatLng location) async {
+    DatabaseReference orderRef = _database.ref().child('orders/$orderId');
+
+    try {
+      await orderRef.update({
+        'riderLat': location.latitude,
+        'riderLong': location.longitude,
+      });
+
+      print(
+          '✅ Rider location updated for order $orderId: (${location.latitude}, ${location.longitude})');
+    } catch (e) {
+      print('❌ Error updating rider location in Firebase: $e');
+    }
   }
 
   void _fetchPayment() async {
@@ -106,46 +152,6 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error retrieving payment data.")),
       );
-    }
-  }
-
-  Future<void> _getCurrentLocation() async {
-    LatLng? location = await LocationService.getCurrentLocation(context);
-    if (location != null) {
-      setState(() {
-        currentLocation = location;
-        _addMarkers();
-
-        if (!_cameraMoved && _mapController != null) {
-          _mapController.animateCamera(
-            CameraUpdate.newLatLngZoom(location, 16),
-          );
-          _cameraMoved = true;
-        }
-
-        if (currentLocation != null &&
-            customerLatitude != 0.0 &&
-            customerLongitude != 0.0 &&
-            !_routeFetched) {
-          _getRoute(
-              currentLocation!, LatLng(customerLatitude, customerLongitude));
-          _routeFetched = true;
-        }
-      });
-      _updateLocationInDatabase(location);
-    }
-  }
-
-  Future<void> _updateLocationInDatabase(LatLng location) async {
-    DatabaseReference locationRef = _database.ref('location');
-    try {
-      await locationRef.update({
-        'lat': location.latitude,
-        'long': location.longitude,
-      });
-      print('Location updated in Firebase');
-    } catch (e) {
-      print('Error updating location in Firebase: $e');
     }
   }
 
