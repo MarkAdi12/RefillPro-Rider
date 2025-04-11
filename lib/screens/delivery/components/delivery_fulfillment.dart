@@ -7,11 +7,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:rider_and_clerk_application/screens/init_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import '../../../constants.dart';
-import '../../../services/google_api_service.dart';
-import '../../../services/location_service.dart';
-import '../../../services/payment_service.dart';
-import '../../../utils/polyline_util.dart';
+import '../../../../../constants.dart';
+import '../../../../../services/google_api_service.dart';
+import '../../../../../services/location_service.dart';
+import '../../../../../services/payment_service.dart';
+import '../../../../../utils/polyline_util.dart';
 import 'delivery_details.dart';
 import 'package:firebase_database/firebase_database.dart';
 
@@ -157,7 +157,7 @@ class _DeliveryFulfillmentState extends State<DeliveryFulfillment> {
 
   Future<void> _getRoute(LatLng start, LatLng end) async {
     final String apiKey =
-        'LOLL'; // REPLACE WITH REAL API KEY AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk
+        'AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk'; // REPLACE WITH REAL API KEY AIzaSyAy1hLcI4XMz-UV-JgZJswU5nXcQHcL6mk
     final data = await ApiService.getRoute(start, end, apiKey);
     if (data['routes'].isNotEmpty) {
       final route = data['routes'][0];

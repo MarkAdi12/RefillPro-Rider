@@ -116,7 +116,7 @@ class OrderDetails extends StatelessWidget {
                 "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
                 style: _valueStyle,
               ),
-              Text("₱${item['total_price']}", style: _valueStyle),
+              Text("PHP ${item['total_price']}", style: _valueStyle),
             ],
           );
         }).toList(),
@@ -124,7 +124,7 @@ class OrderDetails extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Cash To Collect', style: _valueStyle),
-            Text('₱${totalPrice.toStringAsFixed(2)}', style: _valueStyle),
+            Text('PHP ${totalPrice.toStringAsFixed(2)}', style: _valueStyle),
           ],
         ),
       ],

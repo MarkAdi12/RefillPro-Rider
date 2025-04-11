@@ -18,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final OrderService _orderListService = OrderService();
   bool _isLoading = true;
-  bool _isFetching = false; // New boolean to track fetching state
+  bool _isFetching = false;
   String? _errorMessage;
   List<dynamic> _orders = [];
   final List<int> _selectedOrderIds = [];
@@ -27,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadPendingOrders();
-
     NotificationService.instance.initialize(onRefresh: _getOrders);
   }
 
@@ -348,13 +347,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                                               .spaceBetween,
                                                       children: [
                                                         Text(
-                                                          "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
+                                                          "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × "
+                                                          "${item['product']['name'].length > 30 ? item['product']['name'].substring(0, 30) + '...' : item['product']['name']}",
                                                           style:
                                                               const TextStyle(
                                                                   fontSize: 14),
                                                         ),
                                                         Text(
-                                                          "₱${item['total_price']}", // ✅ Use stored price from order details
+                                                          "PHP ${item['total_price']}",
                                                           style:
                                                               const TextStyle(
                                                                   fontSize: 14),
@@ -375,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           fontSize: 15),
                                                     ),
                                                     Text(
-                                                      "₱${totalPrice.toStringAsFixed(2)}",
+                                                      "PHP ${totalPrice.toStringAsFixed(2)}",
                                                       style: const TextStyle(
                                                         fontSize: 15,
                                                       ),

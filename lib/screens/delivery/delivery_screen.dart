@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../constants.dart';
+import '../../../../constants.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../services/order_service.dart';
+import '../../../../services/order_service.dart';
 import 'components/delivery_fulfillment.dart';
-import '../../../services/order_management_service.dart';
+import '../../../../../services/order_management_service.dart';
 
 class DeliveryScreen extends StatefulWidget {
   const DeliveryScreen({super.key});
@@ -65,6 +65,36 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       _sortedOrders = loadedOrders;
       _isLoading = false;
     });
+  }
+
+  Future<bool> _showWarningDialog(BuildContext context) async {
+    return await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text(
+                'Warning',
+                style: TextStyle(
+                  fontSize: 18,
+                ),
+              ),
+              content: const Text(
+                'This is not the next order in the queue. Proceeding may affect delivery efficiency. Continue?',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false), // Cancel
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true), // Confirm
+                  child: const Text('Proceed'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   Future<void> _removeOrder(int orderId) async {
@@ -193,19 +223,15 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          "Order #$orderId",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16.0),
+                          child: Text(
+                            "Order #$orderId",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.highlight_remove_outlined),
-                          onPressed: () {
-                            _removeOrder(order['id']);
-                          },
-                          color: Colors.white,
                         ),
                       ],
                     ),
@@ -250,11 +276,12 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × ${item['product']['name']}",
+                                  "${int.parse(double.parse(item['quantity']).toStringAsFixed(0))} × "
+                                  "${item['product']['name'].length > 30 ? item['product']['name'].substring(0, 30) + '...' : item['product']['name']}",
                                   style: const TextStyle(fontSize: 14),
                                 ),
                                 Text(
-                                  "₱${item['total_price']}",
+                                  "PHP ${item['total_price']}",
                                   style: const TextStyle(fontSize: 14),
                                 ),
                               ],
@@ -270,7 +297,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                               style: TextStyle(fontSize: 15),
                             ),
                             Text(
-                              "₱${totalPrice.toStringAsFixed(2)}",
+                              "PHP ${totalPrice.toStringAsFixed(2)}",
                               style: const TextStyle(
                                 fontSize: 15,
                               ),
@@ -306,17 +333,33 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                     }
 
                                     int orderId = order['id'];
-                                    DateTime deliveryDateTime = DateTime.now();
-                                    int newStatus =
-                                        order['status'] == 2 ? 3 : 3;
 
-                                    // Fetch the order details
+                                    // Ensure orders are loaded
+                                    if (_sortedOrders.isNotEmpty &&
+                                        _sortedOrders.first['id'] != orderId) {
+                                      bool proceed =
+                                          await _showWarningDialog(context);
+                                      if (!proceed) {
+                                        setState(() {
+                                          _isPressed = false;
+                                        });
+                                        return; // Stop execution if the user cancels
+                                      }
+                                    }
+
+                                    // Proceed with updating the order status
                                     try {
+                                      DateTime deliveryDateTime =
+                                          DateTime.now();
+                                      int newStatus =
+                                          order['status'] == 2 ? 3 : 3;
+
                                       final orders = await OrderService()
                                           .fetchOrders(token);
                                       final orderDetails = orders.firstWhere(
-                                          (o) => o['id'] == orderId,
-                                          orElse: () => null);
+                                        (o) => o['id'] == orderId,
+                                        orElse: () => null,
+                                      );
 
                                       if (orderDetails != null &&
                                           orderDetails['status'] > 4) {
@@ -324,12 +367,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                           context: context,
                                           builder: (BuildContext context) {
                                             return AlertDialog(
-                                              title: Text(
-                                                'Order Cancelled',
-                                                style: TextStyle(fontSize: 18),
-                                              ),
+                                              title: Text('Order Cancelled',
+                                                  style:
+                                                      TextStyle(fontSize: 18)),
                                               content: Text(
-                                                'The order has been cancelled, \nPlease Proceed to the next order',
+                                                'The order has been cancelled.\nPlease proceed to the next order.',
                                                 style: TextStyle(fontSize: 16),
                                               ),
                                               actions: <Widget>[
@@ -351,7 +393,6 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                         return;
                                       }
 
-                                      // Proceed with updating the order status
                                       bool isUpdated =
                                           await OrderService().updateOrder(
                                         token,
@@ -411,7 +452,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                                   )
                                 : Text(order['status'] == 2
                                     ? 'Reattempt Delivery'
-                                    : 'Accept Order'),
+                                    : 'Start Delivery'),
                           ),
                         ),
                       ],

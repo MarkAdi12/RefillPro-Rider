@@ -5,10 +5,10 @@ import 'package:rider_and_clerk_application/screens/delivery/delivery_screen.dar
 import 'package:rider_and_clerk_application/screens/init_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../constants.dart';
-import '../../../services/order_management_service.dart';
+import '../../../../../constants.dart';
+import '../../../../../services/order_management_service.dart';
 import 'package:firebase_database/firebase_database.dart';
-import '../../../services/payment_service.dart';
+import '../../../../../services/payment_service.dart';
 
 class DraggableSheet extends StatefulWidget {
   final Map<String, dynamic> order;
@@ -303,7 +303,7 @@ class _DraggableSheetState extends State<DraggableSheet> {
                               children: [
                                 Text(
                                     '${double.parse(orderDetail['quantity']).toInt()} x ${orderDetail['product']['name']}'),
-                                Text('${orderDetail['total_price']}'),
+                                Text("PHP ${orderDetail['total_price']}"),
                               ],
                             );
                           }).toList() ??
@@ -317,7 +317,7 @@ class _DraggableSheetState extends State<DraggableSheet> {
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     Text(
-                      "₱${widget.order['order_details'].map((item) => double.parse(item['total_price'])).fold(0.0, (prev, amount) => prev + amount).toStringAsFixed(2)}",
+                      "PHP ${widget.order['order_details'].map((item) => double.parse(item['total_price'])).fold(0.0, (prev, amount) => prev + amount).toStringAsFixed(2)}",
                     ),
                   ],
                 ),
@@ -437,7 +437,7 @@ class _DraggableSheetState extends State<DraggableSheet> {
                                 valueColor:
                                     AlwaysStoppedAnimation<Color>(Colors.white),
                               )
-                            : const Text('Complete Delivery'),
+                            : const Text('Delivered'),
                       ),
                     ),
                     SizedBox(width: 12),
